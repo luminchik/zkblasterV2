@@ -93,11 +93,14 @@ passport.deserializeUser((id, done) => {
 // Маршруты для Discord авторизации
 app.get('/auth/discord', passport.authenticate('discord'));
 
-app.get('/auth/discord/callback', passport.authenticate('discord', {
-  failureRedirect: '/'
-}), (req, res) => {
-  res.redirect('/');
-});
+app.get('/auth/discord/callback', 
+  passport.authenticate('discord', {
+    failureRedirect: '/'
+  }), 
+  (req, res) => {
+    res.redirect('/');
+  }
+);
 
 // API для получения данных текущего пользователя
 app.get('/api/me', (req, res) => {
@@ -136,10 +139,10 @@ app.get('/logout', (req, res) => {
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // Прокси для R-сервера
-app.use('/process-image', createProxyMiddleware({ 
-    target: 'http://localhost:8000',
-    changeOrigin: true
-}));
+// app.use('/process-image', createProxyMiddleware({ 
+//     target: 'http://localhost:8000',
+//     changeOrigin: true
+// }));
 
 // Маршруты
 app.get('/', (req, res) => {
