@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
-const PostgresStore = require('express-session-postgres')(session);
+const pgSession = require('connect-pg-simple')(session);
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const db = require('./db');  // подключаем нашу базу данных
@@ -33,13 +33,14 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Настройка express-session с PostgresStore
 app.use(session({
-    store: new PostgresStore({
+    store: new pgSession({
         pool: pool,
-        tableName: 'sessions'
+        tableName: 'session'
     }),
     secret: process.env.SESSION_SECRET,
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
 }));
 
 // Инициализация Passport

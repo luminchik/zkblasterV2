@@ -20,7 +20,7 @@
     "passport": "0.6.0",
     "passport-discord": "0.1.4",
     "pg": "8.11.3",
-    "express-session-postgres": "1.2.0",
+    "connect-pg-simple": "9.0.1",
     "socket.io": "4.8.1",
     "uuid": "9.0.1"
   },
