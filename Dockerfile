@@ -1,6 +1,9 @@
 # Используем официальный образ Node.js
 FROM node:18-slim
 
+# Устанавливаем curl для healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 # Создаем директорию приложения
 WORKDIR /app
 

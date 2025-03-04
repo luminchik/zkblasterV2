@@ -176,6 +176,11 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 //     changeOrigin: true
 // }));
 
+// Добавьте перед другими маршрутами
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'assets', 'favicon.ico'));
+});
+
 // Маршруты
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'game.html'));
