@@ -35,10 +35,11 @@ app.use((req, res, next) => {
 
 // Обновляем настройки CORS
 app.use(cors({
-    origin: '*', // Временно разрешаем все источники
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Set-Cookie']
 }));
 
 // Добавляем обработчик preflight запросов
@@ -52,17 +53,29 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use(session({
     store: new pgSession({
         pool: pool,
-        tableName: 'session'
+        tableName: 'session',
+        createTableIfMissing: true
     }),
     secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     cookie: { 
-        secure: false, // Временно отключаем для тестирования
+        secure: false,
         maxAge: 30 * 24 * 60 * 60 * 1000,
-        sameSite: 'lax'
+        sameSite: 'none',
+        httpOnly: true,
+        path: '/'
     }
 }));
+
+// Добавляем заголовки безопасности
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization');
+    next();
+});
 
 // Инициализация Passport
 app.use(passport.initialize());
