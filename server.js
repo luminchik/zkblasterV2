@@ -21,14 +21,11 @@ const pool = new Pool({
 
 const app = express();
 
-// Добавляем в начало файла
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err);
-});
-
-process.on('unhandledRejection', (err) => {
-    console.error('Unhandled Rejection:', err);
-});
+// Добавьте в начало файла
+const healthCheck = {
+  isHealthy: true,
+  startTime: Date.now()
+};
 
 // Добавляем middleware для логирования
 app.use((req, res, next) => {
@@ -560,6 +557,29 @@ function fixTimeFormattedInDatabase() {
 
 // Вызовите функцию после запуска сервера
 fixTimeFormattedInDatabase();
+
+// Добавьте маршрут для проверки здоровья
+app.get('/health', (req, res) => {
+  if (healthCheck.isHealthy) {
+    res.status(200).json({
+      status: 'ok',
+      uptime: Date.now() - healthCheck.startTime
+    });
+  } else {
+    res.status(500).json({ status: 'error' });
+  }
+});
+
+// Обработка ошибок process
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  healthCheck.isHealthy = false;
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+  healthCheck.isHealthy = false;
+});
 
 // Запуск сервера
 const PORT = process.env.PORT || 3000;
