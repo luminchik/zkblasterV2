@@ -3,13 +3,22 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const PostgresStore = require('express-session-postgres')(session);
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const db = require('./db');  // подключаем нашу базу данных
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const axios = require('axios');
 const cors = require('cors');
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
 const app = express();
 
 // Настройка CORS
@@ -22,16 +31,15 @@ app.use(cors({
 app.use(express.static(path.join(__dirname)));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
-// Настройка express-session с SQLiteStore
+// Настройка express-session с PostgresStore
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'quiz-blaster-secret',
+    store: new PostgresStore({
+        pool: pool,
+        tableName: 'sessions'
+    }),
+    secret: process.env.SESSION_SECRET,
     resave: false,
-    saveUninitialized: false,
-    cookie: { 
-        secure: process.env.NODE_ENV === 'production', 
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 дней
-    },
-    store: new SQLiteStore({ db: 'sessions.db' })
+    saveUninitialized: false
 }));
 
 // Инициализация Passport
