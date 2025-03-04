@@ -23,7 +23,7 @@ const app = express();
 
 // Настройка CORS
 app.use(cors({
-    origin: true,
+    origin: ['https://zkblaster-production.up.railway.app', 'http://localhost:5501'],
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS']
 }));
@@ -44,7 +44,7 @@ app.use(session({
     saveUninitialized: false,
     cookie: { 
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        secure: process.env.NODE_ENV === 'production',
+        secure: false,
         sameSite: 'lax'
     }
 }));
@@ -178,6 +178,9 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // Маршруты
 app.get('/', (req, res) => {
+    // Добавим логирование
+    console.log('User session:', req.session);
+    console.log('User:', req.user);
     res.sendFile(path.join(__dirname, 'game.html'));
 });
 
@@ -465,7 +468,8 @@ app.post('/api/verify-score', (req, res) => {
 
 // Добавляем обработчик ошибок
 app.use((err, req, res, next) => {
-    res.status(500).json({ error: 'Internal server error' });
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something broke!' });
 });
 
 // Добавляем обработчик для несуществующих маршрутов
