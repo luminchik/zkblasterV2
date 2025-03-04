@@ -23,8 +23,9 @@ const app = express();
 
 // Настройка CORS
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5500',
-    credentials: true
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS']
 }));
 
 // Настройка статических файлов
@@ -35,12 +36,17 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use(session({
     store: new pgSession({
         pool: pool,
-        tableName: 'session'
+        tableName: 'session',
+        createTableIfMissing: true
     }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
+    cookie: { 
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+    }
 }));
 
 // Инициализация Passport
@@ -63,28 +69,33 @@ async function(accessToken, refreshToken, profile, done) {
     const displayName = profile.username;
     const avatar = profile.avatar || null;
 
-    // Проверяем существование пользователя
+    // Добавим логирование
+    console.log('Discord profile:', profile);
+
     const userResult = await db.query(
       "SELECT * FROM users WHERE discord_id = $1",
       [discordId]
     );
 
     if (userResult.rows.length > 0) {
-      // Обновляем существующего пользователя
       await db.query(
         "UPDATE users SET display_name = $1, avatar = $2 WHERE discord_id = $3",
         [displayName, avatar, discordId]
       );
     } else {
-      // Создаем нового пользователя
       await db.query(
         "INSERT INTO users (discord_id, display_name, avatar) VALUES ($1, $2, $3)",
         [discordId, displayName, avatar]
       );
     }
 
-    return done(null, { discord_id: discordId, display_name: displayName, avatar: avatar });
+    return done(null, { 
+      discord_id: discordId, 
+      display_name: displayName, 
+      avatar: avatar 
+    });
   } catch (err) {
+    console.error('Discord auth error:', err);
     return done(err);
   }
 }));
@@ -106,10 +117,20 @@ app.get('/auth/discord', passport.authenticate('discord'));
 
 app.get('/auth/discord/callback', 
   passport.authenticate('discord', {
-    failureRedirect: '/'
+    failureRedirect: '/',
+    failureFlash: true
   }), 
   (req, res) => {
-    res.redirect('/');
+    // Добавим логирование
+    console.log('Auth successful, user:', req.user);
+    // Добавим явное указание на успешную аутентификацию
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect('/');
+      }
+      res.redirect('/');
+    });
   }
 );
 
