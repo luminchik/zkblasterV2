@@ -21,11 +21,31 @@ const pool = new Pool({
 
 const app = express();
 
-// Настройка CORS
+// Добавляем в начало файла
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (err) => {
+    console.error('Unhandled Rejection:', err);
+});
+
+// Добавляем middleware для логирования
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
+
+// Обновляем настройки CORS
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5500',
-    credentials: true
+    origin: '*', // Временно разрешаем все источники
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Добавляем обработчик preflight запросов
+app.options('*', cors());
 
 // Настройка статических файлов
 app.use(express.static(path.join(__dirname)));
@@ -40,7 +60,11 @@ app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
+    cookie: { 
+        secure: false, // Временно отключаем для тестирования
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+        sameSite: 'lax'
+    }
 }));
 
 // Инициализация Passport
@@ -538,7 +562,7 @@ function fixTimeFormattedInDatabase() {
 fixTimeFormattedInDatabase();
 
 // Запуск сервера
-const PORT = process.env.PORT || 5501;
-app.listen(PORT, () => {
-    // console.log(`Server running at http://localhost:${PORT}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
 }); 
