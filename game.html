@@ -657,6 +657,38 @@
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="game.js"></script>
         <script>
+            $.ajaxSetup({
+                xhrFields: {
+                    withCredentials: true
+                },
+                crossDomain: true
+            });
+
+            // Обновляем URL для API запросов
+            const API_URL = window.location.origin;
+
+            // Проверка авторизации
+            function checkAuthStatus() {
+                $.ajax({
+                    url: `${API_URL}/api/me`,
+                    method: 'GET',
+                    xhrFields: {
+                        withCredentials: true
+                    },
+                    success: function(data) {
+                        if (data.authenticated) {
+                            isAuthenticated = true;
+                            updateUserInfo(data);
+                        } else {
+                            showLoginButton();
+                        }
+                    },
+                    error: function() {
+                        showLoginButton();
+                    }
+                });
+            }
+            
             // Флаг авторизации, изначально false
             let isAuthenticated = false;
             
