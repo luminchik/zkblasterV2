@@ -1,0 +1,18 @@
+# Зависимости
+node_modules/
+package-lock.json
+
+# Файлы окружения
+.env
+.env.local
+
+# Логи
+*.log
+
+# Системные файлы
+.DS_Store
+.vscode/
+
+cache/
+artifacts/
+out/

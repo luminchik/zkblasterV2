@@ -1,0 +1,162 @@
+[
+  {
+      "question": "What is the Succinct Prover Network?",
+      "answers": [
+          "ZK proof system",
+          "Blockchain",
+          "Smart contract",
+          "Oracle"
+      ],
+      "correct": 0
+  },
+  {
+    "question": "Who?",
+    "answers": [
+      {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Saturn_during_Equinox.jpg/220px-Saturn_during_Equinox.jpg", "text": "Saturn"},
+      {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Uranus2.jpg/280px-Uranus2.jpg", "text": "Uranus"},
+      {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/FullMoon2010.jpg/280px-FullMoon2010.jpg", "text": "Moon"},
+      {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/OSIRIS_Mars_true_color.jpg/280px-OSIRIS_Mars_true_color.jpg", "text": "Mars"}
+    ],
+    "correct": 0
+  },
+  {
+    "question": "Meow?",
+    "answers": [
+      {"url": "public/assets/answers/yinger1.png", "text": "Yinger"},
+      {"url": "public/assets/answers/luminchik.png", "text": "Lumin"},
+      {"url": "public/assets/answers/uma.png", "text": "Uma"},
+      {"url": "public/assets/answers/bot.png", "text": "FreakyBot"}
+    ],
+    "correct": 0
+  },
+  {
+      "question": "What blockchain does the Succinct Prover Network run on?",
+      "answers": [
+          "Ethereum",
+          "Solana",
+          "Polkadot",
+          "Cosmos"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "What is the main role of provers in the Succinct Network?",
+      "answers": [
+          "Generate proofs",
+          "Mine blocks",
+          "Store data",
+          "Verify transactions"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "What is the name of Succinct\u2019s zero-knowledge virtual machine?",
+      "answers": [
+          "SP1",
+          "ZK-VM",
+          "ZeroProver",
+          "ProofX"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "What is the purpose of zero-knowledge proofs in Succinct?",
+      "answers": [
+          "Scalability",
+          "Privacy",
+          "Verifiability",
+          "All of the above"
+      ],
+      "correct": 3
+  },
+  {
+      "question": "What language is primarily used to write programs for SP1?",
+      "answers": [
+          "Rust",
+          "Solidity",
+          "Python",
+          "Go"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "Which layer does Succinct Prover Network resemble?",
+      "answers": [
+          "L1 execution",
+          "L2 rollup",
+          "Storage layer",
+          "Data availability"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "What mechanism do provers use to compete in the network?",
+      "answers": [
+          "Proof contests",
+          "Mining",
+          "Staking",
+          "Bidding"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "What token is used for fees in the Succinct Network?",
+      "answers": [
+          "USDC",
+          "ETH",
+          "BTC",
+          "DAI"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "What kind of blockchain scalability does Succinct focus on?",
+      "answers": [
+          "ZK rollups",
+          "Sharding",
+          "Sidechains",
+          "Layer 2 solutions"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "What does SP1 stand for in the Succinct Network?",
+      "answers": [
+          "Succinct Processor 1",
+          "Secure Proof 1",
+          "Scalable Protocol 1",
+          "Smart Prover 1"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "What type of actors are present in the Succinct Prover Network?",
+      "answers": [
+          "Requesters and Provers",
+          "Validators and Miners",
+          "Stakers and Delegators",
+          "Nodes and Clients"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "What is the primary benefit of using ZK proofs in blockchains?",
+      "answers": [
+          "Reducing verification cost",
+          "Increasing transaction fees",
+          "Making mining faster",
+          "Replacing validators"
+      ],
+      "correct": 0
+  },
+  {
+      "question": "Which programming model does SP1 follow?",
+      "answers": [
+          "RISC-V",
+          "EVM",
+          "WASM",
+          "x86"
+      ],
+      "correct": 0
+  }
+]
