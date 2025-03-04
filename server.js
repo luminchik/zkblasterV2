@@ -23,9 +23,8 @@ const app = express();
 
 // Настройка CORS
 app.use(cors({
-    origin: ['https://zkblaster-production.up.railway.app', 'http://localhost:5501'],
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS']
+    origin: process.env.CLIENT_URL || 'http://localhost:5500',
+    credentials: true
 }));
 
 // Настройка статических файлов
@@ -36,17 +35,12 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use(session({
     store: new pgSession({
         pool: pool,
-        tableName: 'session',
-        createTableIfMissing: true
+        tableName: 'session'
     }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { 
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        secure: false,
-        sameSite: 'lax'
-    }
+    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 } // 30 days
 }));
 
 // Инициализация Passport
@@ -69,33 +63,28 @@ async function(accessToken, refreshToken, profile, done) {
     const displayName = profile.username;
     const avatar = profile.avatar || null;
 
-    // Добавим логирование
-    console.log('Discord profile:', profile);
-
+    // Проверяем существование пользователя
     const userResult = await db.query(
       "SELECT * FROM users WHERE discord_id = $1",
       [discordId]
     );
 
     if (userResult.rows.length > 0) {
+      // Обновляем существующего пользователя
       await db.query(
         "UPDATE users SET display_name = $1, avatar = $2 WHERE discord_id = $3",
         [displayName, avatar, discordId]
       );
     } else {
+      // Создаем нового пользователя
       await db.query(
         "INSERT INTO users (discord_id, display_name, avatar) VALUES ($1, $2, $3)",
         [discordId, displayName, avatar]
       );
     }
 
-    return done(null, { 
-      discord_id: discordId, 
-      display_name: displayName, 
-      avatar: avatar 
-    });
+    return done(null, { discord_id: discordId, display_name: displayName, avatar: avatar });
   } catch (err) {
-    console.error('Discord auth error:', err);
     return done(err);
   }
 }));
@@ -117,20 +106,10 @@ app.get('/auth/discord', passport.authenticate('discord'));
 
 app.get('/auth/discord/callback', 
   passport.authenticate('discord', {
-    failureRedirect: '/',
-    failureFlash: true
+    failureRedirect: '/'
   }), 
   (req, res) => {
-    // Добавим логирование
-    console.log('Auth successful, user:', req.user);
-    // Добавим явное указание на успешную аутентификацию
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
-        return res.redirect('/');
-      }
-      res.redirect('/');
-    });
+    res.redirect('/');
   }
 );
 
@@ -178,9 +157,6 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // Маршруты
 app.get('/', (req, res) => {
-    // Добавим логирование
-    console.log('User session:', req.session);
-    console.log('User:', req.user);
     res.sendFile(path.join(__dirname, 'game.html'));
 });
 
@@ -468,8 +444,7 @@ app.post('/api/verify-score', (req, res) => {
 
 // Добавляем обработчик ошибок
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ error: 'Something broke!' });
+    res.status(500).json({ error: 'Internal server error' });
 });
 
 // Добавляем обработчик для несуществующих маршрутов
