@@ -645,9 +645,12 @@ function fixTimeFormattedInDatabase() {
 // Вызовите функцию после запуска сервера
 fixTimeFormattedInDatabase();
 
-// Добавьте явные маршруты для ресурсов
-app.get('/questions.json', (req, res) => {
-    res.sendFile(path.join(__dirname, 'src/questions.json'));
+// Добавьте маршрут для получения вопросов через API
+app.get('/api/questions', (req, res) => {
+    const questions = require('./questions.json');
+    // Перемешиваем вопросы на сервере
+    const shuffled = [...questions].sort(() => Math.random() - 0.5);
+    res.json(shuffled);
 });
 
 // Запуск сервера

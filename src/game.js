@@ -39,10 +39,10 @@ class Quiz {
   
     loadQuestionsFromServer() {
       $.ajax({
-        url: 'questions.json',
+        url: '/api/questions', // Изменяем URL
         dataType: 'json',
         success: (data) => {
-          this.questions = this.shuffleQuestions(data);
+          this.questions = data; // Вопросы уже перемешаны на сервере
           this.loaded = true;
           
           // Сохраняем вопросы в кэш
@@ -57,7 +57,7 @@ class Quiz {
         },
         error: (xhr, status, error) => {
           console.error('Ошибка загрузки вопросов:', error);
-          this.questions = this.shuffleQuestions(this.getDefaultQuestions());
+          this.questions = this.getDefaultQuestions();
           this.loaded = true;
           
           if (typeof this.onQuestionsLoaded === 'function') {
