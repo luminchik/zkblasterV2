@@ -392,12 +392,15 @@ async function initDatabase() {
 // Переместить определение маршрута перед startServer()
 app.get('/api/questions', (req, res) => {
   try {
-    const questions = require('./questions.json');
+    const questionsPath = path.join(__dirname, 'questions.json');
+    const questions = require(questionsPath);
     if (!Array.isArray(questions)) throw new Error('Invalid questions format');
     
     const shuffled = [...questions].sort(() => Math.random() - 0.5);
     res.json(shuffled);
     
+    console.log('Путь к questions.json:', questionsPath);
+    console.log('Файл существует:', fs.existsSync(questionsPath));
   } catch (error) {
     console.error('Error loading questions:', error);
     res.status(500).json({ error: 'Failed to load questions' });
