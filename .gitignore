@@ -5,3 +5,6 @@ node_modules/
 cache/
 artifacts/
 out/
+src/game.js
+src/game.css
+src/assets/*
