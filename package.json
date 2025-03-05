@@ -4,7 +4,7 @@
   "description": "Space Quiz Game with Discord integration",
   "main": "server.js",
   "scripts": {
-    "start": "node game.js",
+    "start": "node server.js",
     "dev": "nodemon server.js",
     "watch": "nodemon server.js"
   },

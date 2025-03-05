@@ -143,11 +143,11 @@ app.use('/process-image', createProxyMiddleware({
 
 // Маршруты
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'game.html'));
+    res.sendFile(path.join(__dirname, 'public/game.html'));
 });
 
 app.get('/game', (req, res) => {
-    res.sendFile(path.join(__dirname, 'game.html'));
+    res.sendFile(path.join(__dirname, 'public/game.html'));
 });
 
 app.get('/terminal', (req, res) => {
@@ -350,7 +350,7 @@ app.get('/api/leaderboard', (req, res) => {
 
 // Маршрут для страницы лидерборда
 app.get('/leaderboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'leaderboard.html'));
+    res.sendFile(path.join(__dirname, 'public/leaderboard.html'));
 });
 
 // Обработчик для обмена кода на токен
@@ -647,7 +647,7 @@ function fixTimeFormattedInDatabase() {
 fixTimeFormattedInDatabase();
 
 // Запуск сервера
-const PORT = process.env.PORT || 5501;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    // console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 }); 
