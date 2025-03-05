@@ -1,63 +1,31 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 
-// Создаем соединение с базой данных
-const dbPath = path.join(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath);
-
-// Создаем таблицы, если они не существуют
-db.serialize(() => {
-  // Таблица пользователей
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      discord_id TEXT UNIQUE,
-      display_name TEXT,
-      avatar TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Таблица результатов Sigma режима
-  db.run(`
-    CREATE TABLE IF NOT EXISTS sigma_scores (
-      user_id TEXT PRIMARY KEY,
-      best_score INTEGER DEFAULT 0,
-      best_time REAL DEFAULT 0,
-      time_formatted TEXT,
-      player_name TEXT,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      is_verified INTEGER DEFAULT 0
-    )
-  `);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL
 });
 
-// Функция для инициализации базы данных
-function initializeDatabase() {
-  db.serialize(() => {
-    db.run(`
+// Создаем таблицы при запуске
+async function initDB() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
       CREATE TABLE IF NOT EXISTS sigma_scores (
         user_id TEXT PRIMARY KEY,
+        display_name TEXT,
+        avatar TEXT,
         best_score INTEGER DEFAULT 0,
         best_time REAL DEFAULT 0,
-        time_formatted TEXT,
-        player_name TEXT,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        time_formatted TEXT DEFAULT '00:00.000',
         is_verified INTEGER DEFAULT 0
       )
     `);
-  });
+  } finally {
+    client.release();
+  }
 }
 
-// Call this function when the application starts
-initializeDatabase();
+initDB().catch(console.error);
 
-// Добавим поле is_verified в таблицу sigma_scores, если его еще нет
-db.get("SELECT is_verified FROM sigma_scores LIMIT 1", [], (err) => {
-  if (err) {
-    // Поле не существует, добавляем его
-    db.run("ALTER TABLE sigma_scores ADD COLUMN is_verified INTEGER DEFAULT 0");
-  }
-});
-
-module.exports = db; 
+module.exports = {
+  query: (text, params) => pool.query(text, params)
+}; 

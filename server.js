@@ -163,16 +163,17 @@ app.get('/api/sigma-best-score', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   
-  db.get(
-    'SELECT best_score, best_time FROM sigma_scores WHERE user_id = ?',
-    [req.user.discord_id],
-    (err, row) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
-      }
-      res.json(row || { best_score: 0, best_time: 0 });
-    }
-  );
+  try {
+    const result = await db.query(
+      'SELECT best_score, best_time, time_formatted FROM sigma_scores WHERE user_id = $1',
+      [req.user.discord_id]
+    );
+    const row = result.rows[0];
+    res.json(row || { best_score: 0, best_time: 0, time_formatted: '00:00.000' });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Обновить лучший результат
@@ -180,170 +181,69 @@ app.post('/api/update-sigma-score', async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  
-  let { score, time, timeFormatted } = req.body;
-  
-  // Проверим и исправим формат времени, если он некорректный
-  if (!timeFormatted || timeFormatted.includes('0.0:')) {
-    // Правильное форматирование времени
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    const milliseconds = Math.floor((time * 1000) % 1000);
-    timeFormatted = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}.${String(milliseconds).padStart(3, '0')}`;
+
+  const { score, time, timeFormatted } = req.body;
+
+  try {
+    await db.query(`
+      INSERT INTO sigma_scores (
+        user_id, 
+        display_name, 
+        avatar, 
+        best_score, 
+        best_time, 
+        time_formatted
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (user_id) DO UPDATE SET
+        display_name = $2,
+        avatar = $3,
+        best_score = CASE WHEN sigma_scores.best_score < $4 THEN $4 ELSE sigma_scores.best_score END,
+        best_time = CASE 
+          WHEN sigma_scores.best_time = 0 THEN $5
+          WHEN sigma_scores.best_time > $5 THEN $5
+          ELSE sigma_scores.best_time 
+        END,
+        time_formatted = CASE 
+          WHEN sigma_scores.best_time = 0 THEN $6
+          WHEN sigma_scores.best_time > $5 THEN $6
+          ELSE sigma_scores.time_formatted 
+        END
+    `, [
+      req.user.discord_id,
+      req.user.display_name,
+      req.user.avatar,
+      score,
+      time,
+      timeFormatted
+    ]);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Database error' });
   }
-  
-  // Проверяем валидность данных
-  if (typeof score !== 'number' || score < 0) {
-    return res.status(400).json({ error: 'Invalid score' });
-  }
-  
-  if (typeof time !== 'number' || time < 0) {
-    return res.status(400).json({ error: 'Invalid time' });
-  }
-  
-  // Проверяем, существует ли запись для этого пользователя
-  db.get(
-    'SELECT * FROM sigma_scores WHERE user_id = ?',
-    [req.user.discord_id],
-    (err, row) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
-      }
-      
-      const currentScore = row ? row.best_score : 0;
-      const currentTime = row ? row.best_time : 0;
-      
-      // Обновляем только если счет больше или если счет равен, но время меньше
-      if (!row || score > currentScore || (score === currentScore && (currentTime === 0 || time < currentTime))) {
-        const query = row 
-          ? 'UPDATE sigma_scores SET best_score = ?, best_time = ?, player_name = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?'
-          : 'INSERT INTO sigma_scores (best_score, best_time, player_name, user_id, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)';
-        
-        const params = row 
-          ? [score, time, req.user.display_name, req.user.discord_id]
-          : [score, time, req.user.display_name, req.user.discord_id];
-        
-        db.run(query, params, function(err) {
-          if (err) {
-            return res.status(500).json({ error: 'Database error: ' + err.message });
-          }
-          
-          res.json({ 
-            success: true, 
-            newRecord: true,
-            oldScore: currentScore,
-            oldTime: currentTime,
-            newScore: score,
-            newTime: time
-          });
-        });
-      } else {
-        res.json({ 
-          success: true, 
-          newRecord: false,
-          currentScore: currentScore,
-          currentTime: currentTime
-        });
-      }
-    }
-  );
 });
 
-// Обновляем API для получения данных лидерборда с пагинацией
-app.get('/api/leaderboard', (req, res) => {
-  // Получаем параметры пагинации
-  const page = parseInt(req.query.page) || 0; // Страница (начиная с 0)
-  const limit = parseInt(req.query.limit) || 10; // Записей на странице
-  const offset = page * limit;
-  
-  // Сначала получаем общее количество записей для пагинации
-  db.get('SELECT COUNT(*) as total FROM sigma_scores', [], (err, countRow) => {
-    if (err) {
-      return res.status(500).json({ error: "Ошибка при получении данных" });
-    }
-    
-    const totalRecords = countRow.total;
-    
-    // Проверяем структуру таблицы sigma_scores
-    db.all("PRAGMA table_info(sigma_scores)", [], (err, columns) => {
-      if (err) {
-        return res.status(500).json({ error: "Ошибка при получении данных" });
-      }
-      
-      // Проверяем наличие столбца time_formatted
-      const hasTimeFormatted = columns.some(column => column.name === 'time_formatted');
-      
-      // Формируем SQL-запрос в зависимости от наличия time_formatted
-      let query;
-      if (hasTimeFormatted) {
-        query = `
-          SELECT s.user_id, s.best_score, s.best_time, s.time_formatted, s.player_name, s.is_verified,
-                 u.avatar, u.display_name
-          FROM sigma_scores s
-          LEFT JOIN users u ON s.user_id = u.discord_id
-          ORDER BY s.best_score DESC
-          LIMIT ? OFFSET ?
-        `;
-      } else {
-        query = `
-          SELECT s.user_id, s.best_score, s.best_time, NULL as time_formatted, s.player_name, s.is_verified,
-                 u.avatar, u.display_name
-          FROM sigma_scores s
-          LEFT JOIN users u ON s.user_id = u.discord_id
-          ORDER BY s.best_score DESC
-          LIMIT ? OFFSET ?
-        `;
-      }
-      
-      // Выполняем запрос с учетом пагинации
-      db.all(query, [limit, offset], (err, rows) => {
-        if (err) {
-          return res.status(500).json({ error: "Ошибка при получении данных" });
-        }
-        
-        // Форматируем данные для отправки клиенту
-        const formattedData = rows.map(row => {
-          // Формируем URL аватарки Discord
-          let avatarUrl = null;
-          if (row.avatar) {
-            avatarUrl = `https://cdn.discordapp.com/avatars/${row.user_id}/${row.avatar}.png?size=128`;
-          }
-          
-          return {
-            user_id: row.user_id,
-            best_score: row.best_score,
-            best_time: row.best_time,
-            time_formatted: row.time_formatted || formatTime(row.best_time),
-            player_name: row.display_name || row.player_name,
-            is_verified: row.is_verified === 1,
-            avatar_url: avatarUrl,
-            rank: offset + rows.indexOf(row) + 1 // Добавляем ранг игрока
-          };
-        });
-        
-        // Возвращаем данные с информацией о пагинации
-        res.json({
-          leaderboard: formattedData,
-          pagination: {
-            total: totalRecords, 
-            page: page,
-            limit: limit,
-            pages: Math.ceil(totalRecords / limit)
-          }
-        });
-      });
-    });
-  });
-  
-  // Функция для форматирования времени
-  function formatTime(timeInSeconds) {
-    if (!timeInSeconds) return "00:00.000";
-    
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = Math.floor(timeInSeconds % 60);
-    const milliseconds = Math.floor((timeInSeconds * 1000) % 1000);
-    
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}.${String(milliseconds).padStart(3, '0')}`;
+// Получить лидерборд
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        user_id,
+        display_name,
+        avatar,
+        best_score,
+        best_time,
+        time_formatted,
+        is_verified
+      FROM sigma_scores 
+      ORDER BY best_score DESC 
+      LIMIT 100
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Database error' });
   }
 });
 
