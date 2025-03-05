@@ -22,10 +22,10 @@
   {
     "question": "Meow?",
     "answers": [
-      {"url": "src/assets/answers/yinger1.png", "text": "Yinger"},
-      {"url": "src/assets/answers/luminchik.png", "text": "Lumin"},
-      {"url": "src/assets/answers/uma.png", "text": "Uma"},
-      {"url": "src/assets/answers/bot.png", "text": "FreakyBot"}
+      {"url": "assets/answers/yinger1.png", "text": "Yinger"},
+      {"url": "assets/answers/luminchik.png", "text": "Lumin"},
+      {"url": "assets/answers/uma.png", "text": "Uma"},
+      {"url": "assets/answers/bot.png", "text": "FreakyBot"}
     ],
     "correct": 0
   },

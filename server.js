@@ -645,6 +645,11 @@ function fixTimeFormattedInDatabase() {
 // Вызовите функцию после запуска сервера
 fixTimeFormattedInDatabase();
 
+// Добавьте явные маршруты для ресурсов
+app.get('/questions.json', (req, res) => {
+    res.sendFile(path.join(__dirname, 'src/questions.json'));
+});
+
 // Запуск сервера
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
