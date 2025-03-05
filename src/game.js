@@ -70,14 +70,13 @@ class Quiz {
     // Метод для перемешивания вопросов
     shuffleQuestions(questions) {
       const shuffled = [...questions];
-      // Алгоритм Фишера-Йейтса для перемешивания массива
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
       
-      // Ограничиваем количество вопросов до 10 для одной игры
-      return shuffled.slice(0, 10);
+      // Возвращаем все вопросы
+      return shuffled;
     }
   
     refreshQuestionsCache() {
@@ -196,7 +195,7 @@ class Quiz {
     }
   
     isGameOver() {
-      return this.currentQuestion >= Math.min(10, this.questions.length) || this.lives <= 0;
+      return this.currentQuestion >= this.questions.length || this.lives <= 0;
     }
   
     decreaseLives() {
