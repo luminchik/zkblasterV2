@@ -39,7 +39,7 @@ class Quiz {
   
     loadQuestionsFromServer() {
       $.ajax({
-        url: 'questions.json',
+        url: '/api/questions',
         dataType: 'json',
         success: (data) => {
           this.questions = this.shuffleQuestions(data);
@@ -83,7 +83,7 @@ class Quiz {
     refreshQuestionsCache() {
       // Фоновое обновление кэша без блокировки интерфейса
       $.ajax({
-        url: 'questions.json',
+        url: '/api/questions',
         dataType: 'json',
         success: (data) => {
           // Обновляем кэш новыми данными
