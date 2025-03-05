@@ -392,27 +392,28 @@ async function initDatabase() {
 // Обновленная функция startServer
 async function startServer() {
   try {
-    // Подключение к БД
     await client.connect();
     console.log('Connected to PostgreSQL');
-
-    // Инициализация таблиц
     await initDatabase();
 
-    // Запуск сервера
     const PORT = process.env.PORT || 8080;
-    const server = app.listen(PORT, '0.0.0.0', () => {
+    const HOST = '0.0.0.0';
+    
+    const server = app.listen(PORT, HOST, () => {
       console.log(`Server running on port ${PORT}`);
     });
 
-    // Обработчик ошибок сервера
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use`);
+        const newPort = PORT + 1;
+        console.log(`Port ${PORT} is busy, trying ${newPort}...`);
+        app.listen(newPort, HOST, () => {
+          console.log(`Server running on port ${newPort}`);
+        });
       } else {
         console.error('Server error:', err);
+        process.exit(1);
       }
-      process.exit(1);
     });
 
     return server;
@@ -458,10 +459,4 @@ app.get('/api/questions', (req, res) => {
     // Перемешиваем вопросы на сервере
     const shuffled = [...questions].sort(() => Math.random() - 0.5);
     res.json(shuffled);
-});
-
-// Запуск сервера
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
 }); 
