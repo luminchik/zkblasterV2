@@ -9,6 +9,7 @@ const DiscordStrategy = require('passport-discord').Strategy;
 const { Client } = require('pg');
 const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const fs = require('fs');
 const app = express();
 
 // Настройка CORS
@@ -45,7 +46,10 @@ app.use(express.json());
 // Создаем клиент PostgreSQL вместо SQLite подключения
 const client = new Client({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { 
+    rejectUnauthorized: false,
+    ca: process.env.NODE_ENV === 'production' ? fs.readFileSync('/etc/ssl/certs/ca-certificates.crt').toString() : null
+  }
 });
 
 // Конфигурация DiscordStrategy
@@ -396,7 +400,7 @@ async function startServer() {
     await initDatabase();
 
     // Запуск сервера
-    const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT || 8080;
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
     });
@@ -457,7 +461,7 @@ app.get('/api/questions', (req, res) => {
 });
 
 // Запуск сервера
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 }); 
