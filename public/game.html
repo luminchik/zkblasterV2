@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz Blaster - Space Quiz Game</title>
-    <link rel="icon" href="public/assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/assets/favicon.ico" type="image/x-icon">
     <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="game.css">
+    <link rel="stylesheet" href="/css/game.css">
     <style>
         #discord-login {
             position: absolute;
@@ -648,14 +648,14 @@
         </div>
         
         <!-- Аудио элементы для звуковых эффектов -->
-        <audio id="shootSound" src="/public/sounds/shoot.mp3" preload="auto"></audio>
-        <audio id="correctSound" src="/public/sounds/correct.mp3" preload="auto"></audio>
-        <audio id="wrongSound" src="/public/sounds/wrong.mp3" preload="auto"></audio>
-        <audio id="timeupSound" src="/public/sounds/timeup.mp3" preload="auto"></audio>
+        <audio id="shootSound" src="/sounds/shoot.mp3" preload="auto"></audio>
+        <audio id="correctSound" src="/sounds/correct.mp3" preload="auto"></audio>
+        <audio id="wrongSound" src="/sounds/wrong.mp3" preload="auto"></audio>
+        <audio id="timeupSound" src="/sounds/timeup.mp3" preload="auto"></audio>
         
         <!-- Подключаем jQuery и наш скрипт -->
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-        <script src="game.js"></script>
+        <script src="/js/game.js"></script>
         <script>
             // Флаг авторизации, изначально false
             let isAuthenticated = false;

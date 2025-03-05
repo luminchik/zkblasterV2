@@ -19,8 +19,7 @@ app.use(cors({
 }));
 
 // Настройка статических файлов
-app.use(express.static(path.join(__dirname)));
-app.use('/public', express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Настройка express-session с SQLiteStore
 app.use(session({
