@@ -349,92 +349,76 @@ app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
-// Переписываем функцию rebuildSigmaScoresTable
-async function rebuildSigmaScoresTable() {
+// Убрать старую функцию rebuildSigmaScoresTable и заменить на:
+
+async function initDatabase() {
   try {
-    const columnsRes = await client.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'sigma_scores'
+    // Создаем таблицу users если не существует
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        discord_id TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        avatar TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
     `);
-    
-    if (columnsRes.rows.length === 0) {
-      // Создаем полную структуру таблицы
-      await client.query(`
-        CREATE TABLE sigma_scores (
-          user_id TEXT PRIMARY KEY,
-          display_name TEXT,
-          avatar TEXT,
-          best_score INTEGER DEFAULT 0,
-          best_time FLOAT DEFAULT 0,
-          time_formatted TEXT DEFAULT '00:00.000',
-          is_verified BOOLEAN DEFAULT false,
-          last_updated TIMESTAMP DEFAULT NOW()
-        )
-      `);
-      console.log('Sigma scores table created');
-    } else {
-      // Добавляем отсутствующие колонки
-      const columns = columnsRes.rows.map(r => r.column_name);
-      const missingColumns = [];
-      
-      if (!columns.includes('display_name')) missingColumns.push('ADD COLUMN display_name TEXT');
-      if (!columns.includes('avatar')) missingColumns.push('ADD COLUMN avatar TEXT');
-      if (!columns.includes('is_verified')) missingColumns.push('ADD COLUMN is_verified BOOLEAN DEFAULT false');
-      
-      if (missingColumns.length > 0) {
-        await client.query(`ALTER TABLE sigma_scores ${missingColumns.join(', ')}`);
-        console.log('Added missing columns:', missingColumns);
-      }
-    }
+
+    // Полная инициализация таблицы sigma_scores
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sigma_scores (
+        user_id TEXT PRIMARY KEY REFERENCES users(discord_id),
+        sigma_score INTEGER DEFAULT 0,
+        best_score INTEGER DEFAULT 0,
+        best_time FLOAT DEFAULT 0,
+        time_formatted TEXT DEFAULT '00:00.000',
+        is_verified BOOLEAN DEFAULT false,
+        last_updated TIMESTAMP DEFAULT NOW(),
+        display_name TEXT,
+        avatar TEXT
+      )
+    `);
+
+    console.log('Database tables verified/created');
   } catch (err) {
-    console.error('Error handling sigma scores table:', err);
+    console.error('Database initialization error:', err);
+    throw err;
   }
 }
 
-// Функция для проверки структуры таблицы
-async function checkTableStructure() {
-  try {
-    const columnsRes = await client.query(
-      "SELECT * FROM information_schema.columns WHERE table_name = 'sigma_scores'"
-    );
-    
-    console.log("Current sigma_scores table structure:", columnsRes.rows);
-
-    const constraintsRes = await client.query(
-      "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_name = 'sigma_scores_pkey' AND table_name = 'sigma_scores'"
-    );
-    
-    if (constraintsRes.rows[0].count === 0) {
-      console.warn("WARNING: sigma_scores table does not have a PRIMARY KEY constraint!");
-    } else {
-      console.log("sigma_scores table has a PRIMARY KEY constraint.");
-    }
-  } catch (err) {
-    console.error('Error checking table structure:', err);
-  }
-}
-
-// Изменить порядок вызова функций при старте
+// Обновленная функция startServer
 async function startServer() {
   try {
+    // Подключение к БД
     await client.connect();
     console.log('Connected to PostgreSQL');
-    
-    await rebuildSigmaScoresTable();
-    await checkTableStructure();
 
+    // Инициализация таблиц
+    await initDatabase();
+
+    // Запуск сервера
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, '0.0.0.0', () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
     });
+
+    // Обработчик ошибок сервера
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use`);
+      } else {
+        console.error('Server error:', err);
+      }
+      process.exit(1);
+    });
+
+    return server;
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);
   }
 }
 
-// Заменить старый вызов app.listen на:
+// Убрать все вызовы функций кроме:
 startServer();
 
 // Добавьте эту функцию в server.js и вызовите ее после запуска сервера
