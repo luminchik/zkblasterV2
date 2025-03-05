@@ -3,11 +3,12 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const pgSession = require('connect-pg-simple')(session);
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const { Client } = require('pg');
 const cors = require('cors');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 
 // Настройка CORS
@@ -28,7 +29,10 @@ app.use(session({
         secure: process.env.NODE_ENV === 'production', 
         maxAge: 30 * 24 * 60 * 60 * 1000 // 30 дней
     },
-    store: new SQLiteStore({ db: 'sessions.db' })
+    store: new pgSession({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: true
+    })
 }));
 
 // Инициализация Passport

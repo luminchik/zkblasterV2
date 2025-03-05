@@ -3,3 +3,11 @@ npm uninstall sqlite3
 
 # Установить PostgreSQL клиент
 npm install pg 
+
+# Удалить ненужные зависимости
+npm uninstall connect-sqlite3
+
+# Установить правильную версию
+npm install connect-pg-simple@9.0.1
+
+npm view connect-pg-simple versions 
