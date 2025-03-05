@@ -361,38 +361,45 @@ app.use((req, res) => {
 // Переписываем функцию rebuildSigmaScoresTable
 async function rebuildSigmaScoresTable() {
   try {
-    // Получаем информацию о столбцах через information_schema (PostgreSQL аналог PRAGMA)
     const columnsRes = await client.query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'sigma_scores'
     `);
     
-    // Проверяем существование таблицы и столбцов
     if (columnsRes.rows.length === 0) {
+      // Создаем полную структуру таблицы
       await client.query(`
         CREATE TABLE sigma_scores (
           user_id TEXT PRIMARY KEY,
-          sigma_score INTEGER DEFAULT 0,
+          display_name TEXT,
+          avatar TEXT,
+          best_score INTEGER DEFAULT 0,
+          best_time FLOAT DEFAULT 0,
+          time_formatted TEXT DEFAULT '00:00.000',
+          is_verified BOOLEAN DEFAULT false,
           last_updated TIMESTAMP DEFAULT NOW()
         )
       `);
+      console.log('Sigma scores table created');
     } else {
-      // Дополнительные проверки столбцов при необходимости
-      const hasSigmaScore = columnsRes.rows.some(row => row.column_name === 'sigma_score');
-      if (!hasSigmaScore) {
-        await client.query('ALTER TABLE sigma_scores ADD COLUMN sigma_score INTEGER DEFAULT 0');
+      // Добавляем отсутствующие колонки
+      const columns = columnsRes.rows.map(r => r.column_name);
+      const missingColumns = [];
+      
+      if (!columns.includes('display_name')) missingColumns.push('ADD COLUMN display_name TEXT');
+      if (!columns.includes('avatar')) missingColumns.push('ADD COLUMN avatar TEXT');
+      if (!columns.includes('is_verified')) missingColumns.push('ADD COLUMN is_verified BOOLEAN DEFAULT false');
+      
+      if (missingColumns.length > 0) {
+        await client.query(`ALTER TABLE sigma_scores ${missingColumns.join(', ')}`);
+        console.log('Added missing columns:', missingColumns);
       }
     }
-    
-    console.log('Sigma scores table verified/created');
   } catch (err) {
     console.error('Error handling sigma scores table:', err);
   }
 }
-
-// Вызовите эту функцию при запуске сервера
-rebuildSigmaScoresTable();
 
 // Функция для проверки структуры таблицы
 function checkTableStructure() {
@@ -418,77 +425,24 @@ function checkTableStructure() {
   });
 }
 
-// Вызовите эту функцию при запуске сервера
-checkTableStructure();
+// Изменить порядок вызова функций при старте
+async function startServer() {
+  // Сначала создаем/проверяем таблицы
+  await rebuildSigmaScoresTable();
+  await checkTableStructure();
 
-// Обновляем API-метод выхода
-app.post('/api/logout', (req, res) => {
-    if (req.session) {
-        req.session.destroy((err) => {
-            if (err) {
-                res.status(500).json({ error: 'Ошибка при выходе' });
-            } else {
-                res.clearCookie('connect.sid', { path: '/' });
-                res.json({ success: true });
-            }
-        });
-    } else {
-        res.clearCookie('connect.sid', { path: '/' });
-        res.json({ success: true });
-    }
-});
-
-// Обработчик API для сохранения результатов
-app.post('/api/save-score', (req, res) => {
-  // Проверка авторизации
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Необходима авторизация" });
-  }
-  
-  const { score, time, timeFormatted } = req.body;
-  const userId = req.user.discord_id;
-  const playerName = req.user.username;
-  
-  // Сначала получаем текущий лучший результат пользователя
-  client.query('SELECT best_score, best_time FROM sigma_scores WHERE user_id = $1', [userId], (err, res) => {
-    if (err) {
-      return res.status(500).json({ error: "Ошибка при сохранении" });
-    }
-    
-    // Если у пользователя уже есть результат, сравниваем с текущим
-    if (res.rows.length > 0) {
-      // Сохраняем только если текущий счет лучше предыдущего
-      if (score > res.rows[0].best_score) {
-        client.query(
-          'UPDATE sigma_scores SET best_score = $1, best_time = $2, time_formatted = $3, player_name = $4, updated_at = CURRENT_TIMESTAMP WHERE user_id = $5',
-          [score, time, timeFormatted, playerName, userId],
-          function(updateErr) {
-            if (updateErr) {
-              return res.status(500).json({ error: "Ошибка при сохранении" });
-            }
-            
-            res.json({ success: true, message: "Результат успешно обновлен" });
-          }
-        );
-      } else {
-        res.json({ success: true, message: "Текущий результат не превышает лучший" });
-      }
-    } else {
-      // Если это первый результат пользователя
-      client.query(
-        'INSERT INTO sigma_scores (user_id, best_score, best_time, time_formatted, player_name) VALUES ($1, $2, $3, $4, $5)',
-        [userId, score, time, timeFormatted, playerName],
-        function(insertErr) {
-          if (insertErr) {
-            return res.status(500).json({ error: "Ошибка при сохранении" });
-          }
-          
-          res.json({ success: true, message: "Результат успешно сохранен" });
-        }
-      );
-    }
+  // Только потом запускаем сервер
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
-});
+
+  // Закомментировать проблемную функцию пока таблица не создана
+  // await fixTimeFormattedInDatabase();
+}
+
+// Заменить старый вызов app.listen на:
+startServer();
 
 // Добавьте эту функцию в server.js и вызовите ее после запуска сервера
 async function fixTimeFormattedInDatabase() {
@@ -515,7 +469,7 @@ async function fixTimeFormattedInDatabase() {
 }
 
 // Вызовите функцию после запуска сервера
-fixTimeFormattedInDatabase();
+// fixTimeFormattedInDatabase();
 
 // Добавьте маршрут для получения вопросов через API
 app.get('/api/questions', (req, res) => {
