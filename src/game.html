@@ -662,58 +662,41 @@
             
             // Check if user is logged in when page loads
             $(document).ready(function() {
-                checkAuthStatus();
-                
-                // Setup Discord login button
-                $('#discord-login').on('click', function() {
-                    window.location.href = '/auth/discord';
+                // Сначала делаем кнопку неактивной
+                $('#play-button').prop('disabled', true).css({
+                    'opacity': '0.5',
+                    'cursor': 'not-allowed'
                 });
-                
-                // Setup logout button
-                $('#logout-btn').on('click', function() {
-                    $.ajax({
-                        url: '/api/logout',
-                        method: 'POST',
-                        success: function(response) {
-                            // Очищаем локальные данные
-                            localStorage.removeItem('quiz_questions_cache');
-                            
-                            // Принудительно очищаем куки
-                            document.cookie = "connect.sid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                            
-                            // Перенаправляем на главную с параметром для предотвращения кэширования
-                            window.location.replace('/?t=' + Date.now());
-                        },
-                        error: function(err) {
-                            // В случае ошибки делаем прямой редирект на /logout
-                            window.location.replace('/logout');
-                        }
+
+                // Проверяем авторизацию
+                checkAuthStatus().then(() => {
+                    // После проверки делаем кнопку активной
+                    $('#play-button').prop('disabled', false).css({
+                        'opacity': '1',
+                        'cursor': 'pointer'
                     });
                 });
-                
-                // Полностью удалим старый обработчик и добавим новый
+
+                // Обработчик кнопки Play
                 $('#play-button').off('click').on('click', function(e) {
-                    e.preventDefault(); // Предотвращаем любое действие по умолчанию
-                    e.stopPropagation(); // Останавливаем распространение события
+                    e.preventDefault();
+                    e.stopPropagation();
                     
-                    // Проверяем, не запущена ли уже игра
-                    if ($('#game-container').hasClass('game-active')) {
-                        return; // Если игра уже запущена, игнорируем нажатие
+                    if ($(this).prop('disabled')) {
+                        return; // Игнорируем клик если кнопка отключена
                     }
-                    
-                    // Проверяем статус авторизации перед запуском игры
+
+                    if ($('#game-container').hasClass('game-active')) {
+                        return;
+                    }
+
                     if (isAuthenticated) {
-                        // Пользователь авторизован - запускаем игру
                         startGame();
-                        // Сразу после запуска игры отключаем кнопку
-                        $('#play-button').prop('disabled', true)
-                            .css({
-                                'opacity': '0.5',
-                                'cursor': 'not-allowed'
-                            })
-                            .off('click'); // Удаляем обработчик клика
+                        $(this).prop('disabled', true).css({
+                            'opacity': '0.5',
+                            'cursor': 'not-allowed'
+                        }).off('click');
                     } else {
-                        // Пользователь не авторизован - показываем сообщение
                         showAuthRequiredMessage();
                     }
                 });
@@ -737,47 +720,44 @@
                 });
             });
             
-            // Function to check authentication status
+            // Обновим функцию checkAuthStatus, чтобы она возвращала Promise
             function checkAuthStatus() {
-                $.ajax({
-                    url: '/api/auth/status',
-                    method: 'GET',
-                    success: function(data) {
-                        if (data.authenticated) {
-                            // Устанавливаем флаг авторизации
-                            isAuthenticated = true;
-                            
-                            // Сначала обновляем все данные
-                            $('#player-name').text(data.user.username);
-                            
-                            // Формируем URL аватара
-                            let avatarUrl;
-                            if (data.user.avatar) {
-                                if (data.user.avatar.startsWith('http')) {
-                                    avatarUrl = data.user.avatar;
+                return new Promise((resolve) => {
+                    $.ajax({
+                        url: '/api/auth/status',
+                        method: 'GET',
+                        success: function(data) {
+                            isAuthenticated = data.authenticated;
+                            if (data.authenticated) {
+                                $('#player-name').text(data.user.username);
+                                let avatarUrl;
+                                if (data.user.avatar) {
+                                    if (data.user.avatar.startsWith('http')) {
+                                        avatarUrl = data.user.avatar;
+                                    } else {
+                                        avatarUrl = `https://cdn.discordapp.com/avatars/${data.user.discord_id}/${data.user.avatar}.png`;
+                                    }
                                 } else {
-                                    avatarUrl = `https://cdn.discordapp.com/avatars/${data.user.discord_id}/${data.user.avatar}.png`;
+                                    avatarUrl = "assets/default-avatar.png";
                                 }
+                                
+                                const avatarImage = new Image();
+                                avatarImage.onload = function() {
+                                    $('#player-avatar').attr('src', avatarUrl);
+                                    $('#mini-user-panel').addClass('loaded').fadeIn(300);
+                                    resolve();
+                                };
+                                avatarImage.src = avatarUrl;
                             } else {
-                                avatarUrl = "assets/default-avatar.png";
+                                $('#mini-user-panel').hide();
+                                resolve();
                             }
-                            
-                            // Предзагружаем аватар перед показом панели
-                            const avatarImage = new Image();
-                            avatarImage.onload = function() {
-                                // После загрузки изображения устанавливаем его и показываем панель
-                                $('#player-avatar').attr('src', avatarUrl);
-                                // Добавляем класс для анимированного появления
-                                $('#mini-user-panel').addClass('loaded').fadeIn(300);
-                            };
-                            avatarImage.src = avatarUrl;
-                        } else {
+                        },
+                        error: function() {
                             $('#mini-user-panel').hide();
+                            resolve();
                         }
-                    },
-                    error: function() {
-                        $('#mini-user-panel').hide();
-                    }
+                    });
                 });
             }
             
