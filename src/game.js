@@ -356,7 +356,7 @@ class Quiz {
     createElement(parentContainer) {
       const el = $(`
               <div class='player'>
-                  <img src="public/assets/rocket4.gif" alt="Rocket Ship">
+                  <img src="src/assets/rocket4.gif" alt="Rocket Ship">
               </div>
           `);
       parentContainer.append(el);
