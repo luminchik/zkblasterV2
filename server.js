@@ -302,8 +302,8 @@ app.get('/api/discord-config', (req, res) => {
   });
 });
 
-// API для верификации счета (упрощенная версия без SP1)
-app.post('/api/verify-score', (req, res) => {
+// Обновим верификацию счета
+app.post('/api/verify-score', async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -314,22 +314,21 @@ app.post('/api/verify-score', (req, res) => {
     return res.status(400).json({ error: 'Missing required parameters' });
   }
   
-  // Логика верификации - в данной реализации просто отмечаем счет как верифицированный
-  db.run(
-    "UPDATE sigma_scores SET is_verified = 1 WHERE user_id = ?",
-    [playerId],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
-      }
-      
-      res.json({ 
-        success: true, 
-        message: 'Score verified successfully',
-        verified: true
-      });
-    }
-  );
+  try {
+    await db.query(
+      'UPDATE sigma_scores SET is_verified = 1 WHERE user_id = $1',
+      [playerId]
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Score verified successfully',
+      verified: true
+    });
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Добавляем обработчик ошибок
@@ -522,24 +521,27 @@ app.post('/api/save-score', (req, res) => {
 });
 
 // Добавьте эту функцию в server.js и вызовите ее после запуска сервера
-function fixTimeFormattedInDatabase() {
-  // Запрос, который обновляет все time_formatted на основе поля best_time
-  db.run(`
-    UPDATE sigma_scores 
-    SET time_formatted = 
-      CASE 
-        WHEN best_time > 0 THEN 
-          (CAST(FLOOR(best_time / 60) AS TEXT) || ':' || 
-           CASE WHEN FLOOR(best_time % 60) < 10 THEN '0' ELSE '' END ||
-           CAST(FLOOR(best_time % 60) AS TEXT) || '.' ||
-           SUBSTR('000' || CAST(FLOOR((best_time - FLOOR(best_time)) * 1000) AS TEXT), -3, 3))
-        ELSE '00:00.000' 
-      END
-  `, function(err) {
-    if (err) {
-      // Обработка ошибки при обновлении форматов времени
-    }
-  });
+async function fixTimeFormattedInDatabase() {
+  try {
+    await db.query(`
+      UPDATE sigma_scores 
+      SET time_formatted = 
+        CASE 
+          WHEN best_time > 0 THEN 
+            CONCAT(
+              FLOOR(best_time / 60)::text, 
+              ':',
+              LPAD(FLOOR(best_time % 60)::text, 2, '0'),
+              '.',
+              LPAD(FLOOR((best_time - FLOOR(best_time)) * 1000)::text, 3, '0')
+            )
+          ELSE '00:00.000' 
+        END
+      WHERE time_formatted IS NULL OR time_formatted = ''
+    `);
+  } catch (error) {
+    console.error('Error updating time_formatted:', error);
+  }
 }
 
 // Вызовите функцию после запуска сервера
