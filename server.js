@@ -389,6 +389,21 @@ async function initDatabase() {
   }
 }
 
+// Переместить определение маршрута перед startServer()
+app.get('/api/questions', (req, res) => {
+  try {
+    const questions = require('./questions.json');
+    if (!Array.isArray(questions)) throw new Error('Invalid questions format');
+    
+    const shuffled = [...questions].sort(() => Math.random() - 0.5);
+    res.json(shuffled);
+    
+  } catch (error) {
+    console.error('Error loading questions:', error);
+    res.status(500).json({ error: 'Failed to load questions' });
+  }
+});
+
 // Обновленная функция startServer
 async function startServer() {
   try {
@@ -451,12 +466,4 @@ async function fixTimeFormattedInDatabase() {
 }
 
 // Вызовите функцию после запуска сервера
-// fixTimeFormattedInDatabase();
-
-// Добавьте маршрут для получения вопросов через API
-app.get('/api/questions', (req, res) => {
-    const questions = require('./questions.json');
-    // Перемешиваем вопросы на сервере
-    const shuffled = [...questions].sort(() => Math.random() - 0.5);
-    res.json(shuffled);
-}); 
+// fixTimeFormattedInDatabase(); 
