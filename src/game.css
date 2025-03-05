@@ -1,0 +1,554 @@
+:root {
+    --author: "Matt Cannon";
+    --contact: "mc@mattcannon.design";
+    --description: "A game based quiz where you shoot asteroids, because why not?";
+    --keywords: "codepenchallenge, cpc-quiz, game, rocket, quiz, blaster";
+    --last-modified: "2024-09-19";
+    --content-language: "en";
+    --generator: "HTML5, CSS3, JavaScript, jQuery";
+    --title: "Quiz Blaster";
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    overflow: hidden;
+    font-family: "Press Start 2P", cursive;
+    color: #fff;
+  }
+  
+  #game-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 2; /* Ensure the game container is on top after the intro screen */
+  }
+  #space-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    z-index: 1;
+    overflow: hidden;
+  }
+  #intro-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7); /* Dark overlay */
+    z-index: 10; /* Higher than everything else */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  #intro-image {
+    width: 640px;
+    height: 491px;
+    object-fit: contain; /* Ensures the aspect ratio is maintained */
+    display: block;
+    margin: 0 auto; /* Centers the image horizontally */
+  }
+  
+  #intro-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7); /* Dark overlay */
+    z-index: 10; /* Keep on top */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  @keyframes scrollStars {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+  
+  .star-layer {
+    position: absolute;
+    width: 200%;
+    height: 100%;
+    left: 0;
+    top: 0;
+  }
+  
+  .star {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: white;
+    border-radius: 50%;
+  }
+  
+  #star-layer-0 {
+    animation: scrollStars 60s linear infinite;
+  }
+  #star-layer-1 {
+    animation: scrollStars 120s linear infinite;
+  }
+  #star-layer-2 {
+    animation: scrollStars 180s linear infinite;
+  }
+  
+  .player {
+    position: fixed;
+    width: 100px;
+    height: 100px;
+    z-index: 10;
+    transform-origin: center;
+    transition: transform 0.5s ease;
+    image-rendering: pixelated;
+    animation: moveRocket 8s ease-in-out infinite;
+  }
+  @keyframes moveRocket {
+    0% {
+      transform: translateY(0) translate(-50%, -50%);
+    }
+    50% {
+      transform: translateY(-10px) translate(-50%, -50%);
+    }
+    100% {
+      transform: translateY(0) translate(-50%, -50%);
+    }
+  }
+  .player img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  
+  /* Style for the fire trail behind the rocket */
+  .trail-point {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(255, 165, 0, 1),
+      rgba(255, 69, 0, 0.8)
+    );
+    box-shadow: 0 0 10px rgba(255, 69, 0, 1);
+    z-index: 9;
+    transform: translate(-50%, -5px);
+    bottom: 0;
+    left: 50%;
+  }
+  
+  /* Style for the bullets being shot from the rocket */
+  .bullet {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 1),
+      rgba(255, 255, 255, 0.8)
+    );
+    box-shadow: 0 0 10px rgba(255, 255, 255, 1);
+    z-index: 9;
+    left: 50px; /* Adjust for correct bullet firing position */
+    top: 40px; /* Position bullet closer to the center of the rocket */
+  }
+  .flash {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ffffff, #f1c40f);
+    width: 35px;
+    height: 35px;
+    transform: translateX(-50%) translateY(-50%);
+    z-index: 8;
+    opacity: 0.8;
+    animation: flash-pulse 0.1s ease-out;
+    left: -25px;
+  }
+  
+  @keyframes flash-pulse {
+    from {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-50%) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-50%) scale(1.5);
+    }
+  }
+  
+  .question,
+  .timer,
+  .score,
+  .feedback,
+  .game-over,
+  .question-count {
+    font-family: "Press Start 2P", cursive;
+    text-shadow: 2px 2px #000;
+    z-index: 20;
+  }
+  
+  .question {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 45px;
+    text-align: center;
+    width: 80%;
+    line-height: 1.5;
+  }
+  
+  .answer {
+    position: absolute;
+    color: #fff;
+    font-size: 12px;
+    text-align: center;
+    width: 100px;
+    height: 100px;
+    z-index: 15;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+  }
+  
+  .image-answer {
+    width: 120px;
+    height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 5px;
+    overflow: hidden;
+  }
+  
+  .answer-image {
+    max-width: 70px;
+    max-height: 70px;
+    border-radius: 50%;
+    margin-bottom: 5px;
+    object-fit: cover;
+  }
+  
+  .answer-text {
+    font-size: 10px;
+    text-shadow: 1px 1px 2px black;
+  }
+  
+  .answer span {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .answer-title {
+    font-size: 12px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px black;
+    padding: 5px;
+  }
+  
+  .timer {
+    position: absolute;
+    font-size: 48px;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: yellow;
+    z-index: 50;
+  }
+  
+  .score {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    font-size: 24px;
+    color: #FE11C5; /* Розовый текст счета */
+    text-shadow: 0 0 5px rgba(254, 17, 197, 0.7);
+    z-index: 70;
+  }
+  
+  .question-count {
+    position: absolute;
+    bottom: 20px;
+    left: 6%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    color: white;
+    z-index: 25;
+  }
+  
+  .feedback {
+    position: absolute;
+    font-size: 36px;
+    text-align: center;
+    padding: 10px;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 25;
+  }
+  
+  .game-over {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    text-align: center;
+    background: rgba(1, 15, 34, 0.9); /* Темно-синий фон #010F22 */
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 30;
+    width: 750px;
+    height: 519px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center top;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    border: 4px solid #FE11C5; /* Розовая граница */
+    box-shadow: 0 0 25px rgba(254, 17, 197, 0.6); /* Розовое свечение */
+    color: white;
+  }
+  
+  .game-over h2 {
+    color: #FE11C5; /* Розовый заголовок */
+    text-shadow: 0 0 10px rgba(254, 17, 197, 0.7);
+  }
+  
+  .game-over p {
+    margin-top: 10px;
+  }
+  @keyframes explode {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+  
+  @keyframes correct {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.2);
+    }
+  }
+  
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      background-color: inherit;
+    }
+    50% {
+      transform: scale(1.2);
+      background-color: rgba(255, 0, 0, 0.5);
+    }
+    100% {
+      transform: scale(1);
+      background-color: inherit;
+    }
+  }
+  
+  .game-over ~ .timer {
+    display: none;
+  }
+  
+  /* Эффект мигания для завершения времени также в розовом цвете */
+  @keyframes timerFlash {
+    0%, 49% {
+      color: #FE11C5;
+      transform: scale(1.2) translateX(-40%);
+      text-shadow: 0 0 10px #FE11C5;
+    }
+    50%, 100% {
+      color: #ff6bdc;
+      transform: scale(1) translateX(-50%);
+      text-shadow: 0 0 5px #FE11C5;
+    }
+  }
+  
+  .timer-warning {
+    color: #ff0000 !important;
+    animation: timerFlash 0.5s infinite;
+  }
+  
+  #wallet-container {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  
+  #connect-wallet {
+    background-color: #4CAF50;
+    color: white;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: "Press Start 2P", cursive;
+    font-size: 12px;
+  }
+  
+  #wallet-status {
+    color: white;
+    margin-top: 5px;
+    font-size: 10px;
+  }
+  
+  .warning-message {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(255, 100, 0, 0.8);
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    z-index: 1000;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 12px;
+  }
+  
+  .verification-status {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #4CAF50;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 12px;
+  }
+  
+  /* Add these styles to game.css */
+  .star-emoji {
+    font-size: 1.1em; /* Make star slightly larger */
+    display: inline-block;
+    vertical-align: middle; /* Align vertically */
+    margin-left: 2px; /* Add a small gap */
+    position: relative;
+    top: -2px; /* Adjust vertical position */
+  }
+  
+  .final-score .star-emoji {
+    font-size: 0.9em;
+    top: -1px;
+  }
+  
+  /* Добавьте эти стили в ваш CSS файл или в тег style в head */
+  #user-info {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 8px 12px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+  }
+  
+  #user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    margin-right: 10px;
+    object-fit: cover;
+    border: 2px solid #fff;
+  }
+  
+  #username {
+    color: white;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 12px;
+    margin-right: 10px;
+  }
+  
+  #logout-btn {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 10px;
+  }
+  
+  /* Обновление стиля для кнопки Play Again */
+  #restart-btn,
+  .restart-btn {
+    background-color: #5865F2; /* Оставляем синий для отличия от зеленой Leaderboard */
+    color: #FFF;
+    border: 4px solid #888;
+    outline: 2px solid #000;
+    padding: 15px 25px;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 1em;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.2s;
+    box-shadow: 0 4px 0 #333;
+    text-shadow: 2px 2px #000;
+    text-decoration: none;
+    display: inline-block;
+  }
+  
+  #restart-btn:hover,
+  .restart-btn:hover {
+    background-color: #4752c4; /* Чуть темнее синий при наведении */
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #333;
+  }
+  
+  #restart-btn:active,
+  .restart-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #333;
+  }
+  
+  /* Стиль для жизней - опускаем ниже */
+  .lives {
+    position: absolute !important;
+    bottom: 20px !important; /* Меняем с 70px на 20px, чтобы опустить ниже */
+    left: 20px !important;
+    font-size: 36px !important;
+    color: #FE11C5 !important;
+    text-shadow: 0 0 10px rgba(254, 17, 197, 0.8) !important;
+    z-index: 9999 !important;
+  }
+  
+  /* Финальный счет на экране завершения игры */
+  .final-score {
+    color: #FE11C5;
+    font-size: 1.5em;
+    text-shadow: 0 0 10px rgba(254, 17, 197, 0.7);
+  }
+  
+  /* Также обновляем более специфичный селектор */
+  .lives.custom-lives {
+    position: absolute !important;
+    bottom: 20px !important; /* Меняем и здесь значение */
+    left: 20px !important;
+    font-size: 36px !important;
+  }

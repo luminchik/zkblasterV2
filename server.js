@@ -19,7 +19,7 @@ app.use(cors({
 }));
 
 // Настройка статических файлов
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'src')));
 
 // Настройка express-session с SQLiteStore
 app.use(session({
@@ -142,11 +142,11 @@ app.use('/process-image', createProxyMiddleware({
 
 // Маршруты
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/game.html'));
+    res.sendFile(path.join(__dirname, 'src/game.html'));
 });
 
 app.get('/game', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/game.html'));
+    res.sendFile(path.join(__dirname, 'src/game.html'));
 });
 
 app.get('/terminal', (req, res) => {
@@ -349,7 +349,7 @@ app.get('/api/leaderboard', (req, res) => {
 
 // Маршрут для страницы лидерборда
 app.get('/leaderboard', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public/leaderboard.html'));
+    res.sendFile(path.join(__dirname, 'src/leaderboard.html'));
 });
 
 // Обработчик для обмена кода на токен
