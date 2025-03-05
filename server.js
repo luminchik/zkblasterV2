@@ -48,15 +48,6 @@ const client = new Client({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Подключаемся к БД
-client.connect(err => {
-  if (err) {
-    console.error('Connection error', err.stack);
-  } else {
-    console.log('Connected to PostgreSQL');
-  }
-});
-
 // Конфигурация DiscordStrategy
 passport.use(new DiscordStrategy({
   clientID: process.env.DISCORD_CLIENT_ID,
@@ -402,43 +393,45 @@ async function rebuildSigmaScoresTable() {
 }
 
 // Функция для проверки структуры таблицы
-function checkTableStructure() {
-  client.query("SELECT * FROM information_schema.columns WHERE table_name = 'sigma_scores'", [], (err, res) => {
-    if (err) {
-      return;
+async function checkTableStructure() {
+  try {
+    const columnsRes = await client.query(
+      "SELECT * FROM information_schema.columns WHERE table_name = 'sigma_scores'"
+    );
+    
+    console.log("Current sigma_scores table structure:", columnsRes.rows);
+
+    const constraintsRes = await client.query(
+      "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_name = 'sigma_scores_pkey' AND table_name = 'sigma_scores'"
+    );
+    
+    if (constraintsRes.rows[0].count === 0) {
+      console.warn("WARNING: sigma_scores table does not have a PRIMARY KEY constraint!");
+    } else {
+      console.log("sigma_scores table has a PRIMARY KEY constraint.");
     }
-    
-    console.log("Current sigma_scores table structure:", res.rows);
-    
-    // Проверяем наличие PRIMARY KEY
-    client.query("SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_name = 'sigma_scores_pkey' AND table_name = 'sigma_scores'", [], (err, row) => {
-      if (err) {
-        return;
-      }
-      
-      if (row.rows[0].count === 0) {
-        console.warn("WARNING: sigma_scores table does not have a PRIMARY KEY constraint!");
-      } else {
-        console.log("sigma_scores table has a PRIMARY KEY constraint.");
-      }
-    });
-  });
+  } catch (err) {
+    console.error('Error checking table structure:', err);
+  }
 }
 
 // Изменить порядок вызова функций при старте
 async function startServer() {
-  // Сначала создаем/проверяем таблицы
-  await rebuildSigmaScoresTable();
-  await checkTableStructure();
+  try {
+    await client.connect();
+    console.log('Connected to PostgreSQL');
+    
+    await rebuildSigmaScoresTable();
+    await checkTableStructure();
 
-  // Только потом запускаем сервер
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-
-  // Закомментировать проблемную функцию пока таблица не создана
-  // await fixTimeFormattedInDatabase();
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
 }
 
 // Заменить старый вызов app.listen на:
