@@ -3,79 +3,36 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
+const SQLiteStore = require('connect-sqlite3')(session);
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const db = require('./db');  // подключаем нашу базу данных
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const axios = require('axios');
 const cors = require('cors');
-const { Pool } = require('pg');
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
-
 const app = express();
 
-// Добавьте в начало файла
-const healthCheck = {
-  isHealthy: true,
-  startTime: Date.now()
-};
-
-// Добавляем middleware для логирования
-app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url}`);
-    next();
-});
-
-// Обновляем настройки CORS
+// Настройка CORS
 app.use(cors({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    exposedHeaders: ['Set-Cookie']
+    origin: process.env.CLIENT_URL || 'http://localhost:5500',
+    credentials: true
 }));
-
-// Добавляем обработчик preflight запросов
-app.options('*', cors());
 
 // Настройка статических файлов
 app.use(express.static(path.join(__dirname)));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
-// Настройка express-session с PostgresStore
+// Настройка express-session с SQLiteStore
 app.use(session({
-    store: new pgSession({
-        pool: pool,
-        tableName: 'session',
-        createTableIfMissing: true
-    }),
-    secret: process.env.SESSION_SECRET,
-    resave: true,
-    saveUninitialized: true,
+    secret: process.env.SESSION_SECRET || 'quiz-blaster-secret',
+    resave: false,
+    saveUninitialized: false,
     cookie: { 
-        secure: false,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        sameSite: 'none',
-        httpOnly: true,
-        path: '/'
-    }
+        secure: process.env.NODE_ENV === 'production', 
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 дней
+    },
+    store: new SQLiteStore({ db: 'sessions.db' })
 }));
-
-// Добавляем заголовки безопасности
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Origin', req.headers.origin);
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization');
-    next();
-});
 
 // Инициализация Passport
 app.use(passport.initialize());
@@ -91,36 +48,34 @@ passport.use(new DiscordStrategy({
   callbackURL: process.env.DISCORD_CALLBACK_URL,
   scope: ['identify']
 },
-async function(accessToken, refreshToken, profile, done) {
-  try {
-    const discordId = profile.id;
-    const displayName = profile.username;
-    const avatar = profile.avatar || null;
-
-    // Проверяем существование пользователя
-    const userResult = await db.query(
-      "SELECT * FROM users WHERE discord_id = $1",
-      [discordId]
-    );
-
-    if (userResult.rows.length > 0) {
-      // Обновляем существующего пользователя
-      await db.query(
-        "UPDATE users SET display_name = $1, avatar = $2 WHERE discord_id = $3",
-        [displayName, avatar, discordId]
-      );
-    } else {
-      // Создаем нового пользователя
-      await db.query(
-        "INSERT INTO users (discord_id, display_name, avatar) VALUES ($1, $2, $3)",
-        [discordId, displayName, avatar]
-      );
-    }
-
-    return done(null, { discord_id: discordId, display_name: displayName, avatar: avatar });
-  } catch (err) {
-    return done(err);
+function(accessToken, refreshToken, profile, done) {
+  // Правильно формируем URL аватара
+  const discordId = profile.id;
+  const displayName = profile.username;
+  let avatar = null;
+  
+  // Если у пользователя есть аватар, формируем только ID аватара
+  if (profile.avatar) {
+    avatar = profile.avatar;
   }
+  
+  // Сохранение пользователя
+  db.get("SELECT * FROM users WHERE discord_id = ?", [discordId], (err, row) => {
+    if (err) return done(err);
+    if (row) {
+      db.run("UPDATE users SET display_name = ?, avatar = ? WHERE discord_id = ?", 
+        [displayName, avatar, discordId], (err) => {
+          if (err) return done(err);
+          return done(null, { discord_id: discordId, display_name: displayName, avatar: avatar });
+        });
+    } else {
+      db.run("INSERT INTO users (discord_id, display_name, avatar) VALUES (?, ?, ?)",
+        [discordId, displayName, avatar], function(err) {
+          if (err) return done(err);
+          return done(null, { discord_id: discordId, display_name: displayName, avatar: avatar });
+        });
+    }
+  });
 }));
 
 passport.serializeUser((user, done) => {
@@ -128,24 +83,21 @@ passport.serializeUser((user, done) => {
 });
 
 passport.deserializeUser((id, done) => {
-  db.query("SELECT * FROM users WHERE discord_id = $1", [id], (err, result) => {
+  db.get("SELECT * FROM users WHERE discord_id = ?", [id], (err, user) => {
     if (err) return done(err);
-    if (result.rows.length === 0) return done(null, false);
-    done(null, result.rows[0]);
+    if (!user) return done(null, false);
+    done(err, user);
   });
 });
 
 // Маршруты для Discord авторизации
 app.get('/auth/discord', passport.authenticate('discord'));
 
-app.get('/auth/discord/callback', 
-  passport.authenticate('discord', {
-    failureRedirect: '/'
-  }), 
-  (req, res) => {
-    res.redirect('/');
-  }
-);
+app.get('/auth/discord/callback', passport.authenticate('discord', {
+  failureRedirect: '/'
+}), (req, res) => {
+  res.redirect('/');
+});
 
 // API для получения данных текущего пользователя
 app.get('/api/me', (req, res) => {
@@ -184,15 +136,10 @@ app.get('/logout', (req, res) => {
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // Прокси для R-сервера
-// app.use('/process-image', createProxyMiddleware({ 
-//     target: 'http://localhost:8000',
-//     changeOrigin: true
-// }));
-
-// Добавьте перед другими маршрутами
-app.get('/favicon.ico', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'assets', 'favicon.ico'));
-});
+app.use('/process-image', createProxyMiddleware({ 
+    target: 'http://localhost:8000',
+    changeOrigin: true
+}));
 
 // Маршруты
 app.get('/', (req, res) => {
@@ -217,15 +164,16 @@ app.get('/api/sigma-best-score', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   
-  try {
-    const result = await db.query(
-      'SELECT best_score, best_time FROM sigma_scores WHERE user_id = $1',
-      [req.user.discord_id]
-    );
-    res.json(result.rows[0] || { best_score: 0, best_time: 0 });
-  } catch (err) {
-    res.status(500).json({ error: 'Database error' });
-  }
+  db.get(
+    'SELECT best_score, best_time FROM sigma_scores WHERE user_id = ?',
+    [req.user.discord_id],
+    (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      res.json(row || { best_score: 0, best_time: 0 });
+    }
+  );
 });
 
 // Обновить лучший результат
@@ -255,47 +203,51 @@ app.post('/api/update-sigma-score', async (req, res) => {
   }
   
   // Проверяем, существует ли запись для этого пользователя
-  db.query('SELECT * FROM sigma_scores WHERE user_id = $1', [req.user.discord_id], async (err, result) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error' });
-    }
-    
-    const currentScore = result.rows.length > 0 ? result.rows[0].best_score : 0;
-    const currentTime = result.rows.length > 0 ? result.rows[0].best_time : 0;
-    
-    // Обновляем только если счет больше или если счет равен, но время меньше
-    if (!result.rows.length || score > currentScore || (score === currentScore && (currentTime === 0 || time < currentTime))) {
-      const query = result.rows.length > 0 
-        ? 'UPDATE sigma_scores SET best_score = $1, best_time = $2, player_name = $3, updated_at = CURRENT_TIMESTAMP WHERE user_id = $4'
-        : 'INSERT INTO sigma_scores (best_score, best_time, player_name, user_id, updated_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)';
+  db.get(
+    'SELECT * FROM sigma_scores WHERE user_id = ?',
+    [req.user.discord_id],
+    (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
       
-      const params = result.rows.length > 0 
-        ? [score, time, req.user.display_name, req.user.discord_id]
-        : [score, time, req.user.display_name, req.user.discord_id];
+      const currentScore = row ? row.best_score : 0;
+      const currentTime = row ? row.best_time : 0;
       
-      await db.query(query, params, (err) => {
-        if (err) {
-          return res.status(500).json({ error: 'Database error: ' + err.message });
-        }
+      // Обновляем только если счет больше или если счет равен, но время меньше
+      if (!row || score > currentScore || (score === currentScore && (currentTime === 0 || time < currentTime))) {
+        const query = row 
+          ? 'UPDATE sigma_scores SET best_score = ?, best_time = ?, player_name = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?'
+          : 'INSERT INTO sigma_scores (best_score, best_time, player_name, user_id, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)';
         
+        const params = row 
+          ? [score, time, req.user.display_name, req.user.discord_id]
+          : [score, time, req.user.display_name, req.user.discord_id];
+        
+        db.run(query, params, function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Database error: ' + err.message });
+          }
+          
+          res.json({ 
+            success: true, 
+            newRecord: true,
+            oldScore: currentScore,
+            oldTime: currentTime,
+            newScore: score,
+            newTime: time
+          });
+        });
+      } else {
         res.json({ 
           success: true, 
-          newRecord: true,
-          oldScore: currentScore,
-          oldTime: currentTime,
-          newScore: score,
-          newTime: time
+          newRecord: false,
+          currentScore: currentScore,
+          currentTime: currentTime
         });
-      });
-    } else {
-      res.json({ 
-        success: true, 
-        newRecord: false,
-        currentScore: currentScore,
-        currentTime: currentTime
-      });
+      }
     }
-  });
+  );
 });
 
 // Обновляем API для получения данных лидерборда с пагинацией
@@ -306,20 +258,18 @@ app.get('/api/leaderboard', (req, res) => {
   const offset = page * limit;
   
   // Сначала получаем общее количество записей для пагинации
-  db.query('SELECT COUNT(*) as total FROM sigma_scores', [], (err, result) => {
+  db.get('SELECT COUNT(*) as total FROM sigma_scores', [], (err, countRow) => {
     if (err) {
       return res.status(500).json({ error: "Ошибка при получении данных" });
     }
     
-    const totalRecords = result.rows[0].total;
+    const totalRecords = countRow.total;
     
     // Проверяем структуру таблицы sigma_scores
-    db.query("PRAGMA table_info(sigma_scores)", [], (err, columnsResult) => {
+    db.all("PRAGMA table_info(sigma_scores)", [], (err, columns) => {
       if (err) {
         return res.status(500).json({ error: "Ошибка при получении данных" });
       }
-      
-      const columns = columnsResult.rows;
       
       // Проверяем наличие столбца time_formatted
       const hasTimeFormatted = columns.some(column => column.name === 'time_formatted');
@@ -347,12 +297,10 @@ app.get('/api/leaderboard', (req, res) => {
       }
       
       // Выполняем запрос с учетом пагинации
-      db.query(query, [limit, offset], (err, rowsResult) => {
+      db.all(query, [limit, offset], (err, rows) => {
         if (err) {
           return res.status(500).json({ error: "Ошибка при получении данных" });
         }
-        
-        const rows = rowsResult.rows;
         
         // Форматируем данные для отправки клиенту
         const formattedData = rows.map(row => {
@@ -468,17 +416,21 @@ app.post('/api/verify-score', (req, res) => {
   }
   
   // Логика верификации - в данной реализации просто отмечаем счет как верифицированный
-  db.query("UPDATE sigma_scores SET is_verified = 1 WHERE user_id = $1", [playerId], (err) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error' });
+  db.run(
+    "UPDATE sigma_scores SET is_verified = 1 WHERE user_id = ?",
+    [playerId],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Score verified successfully',
+        verified: true
+      });
     }
-    
-    res.json({ 
-      success: true, 
-      message: 'Score verified successfully',
-      verified: true
-    });
-  });
+  );
 });
 
 // Добавляем обработчик ошибок
@@ -490,6 +442,116 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
+
+// Улучшенная функция для пересоздания таблицы с обработкой отсутствующих полей
+function rebuildSigmaScoresTable() {
+  // Сначала проверяем структуру таблицы, чтобы узнать, есть ли поле time_formatted
+  db.all("PRAGMA table_info(sigma_scores)", [], (err, columns) => {
+    if (err) {
+      return;
+    }
+    
+    // Проверяем, есть ли поле time_formatted
+    const hasTimeFormatted = columns.some(column => column.name === 'time_formatted');
+    
+    // Шаг 1: Сохраняем данные во временную таблицу
+    db.serialize(() => {
+      // Создаем временную таблицу с добавленным столбцом time_formatted
+      db.run(`CREATE TABLE IF NOT EXISTS temp_scores (
+        user_id TEXT,
+        best_score INTEGER,
+        best_time REAL,
+        time_formatted TEXT,
+        player_name TEXT,
+        is_verified INTEGER DEFAULT 0,
+        updated_at TIMESTAMP
+      )`);
+      
+      // Копируем данные с защитой от отсутствующих столбцов
+      if (hasTimeFormatted) {
+        db.run(`INSERT INTO temp_scores 
+                SELECT user_id, MAX(best_score) as best_score, best_time, 
+                       time_formatted, player_name, is_verified, updated_at 
+                FROM sigma_scores 
+                GROUP BY user_id`);
+      } else {
+        // Если поля time_formatted нет, используем NULL
+        db.run(`INSERT INTO temp_scores 
+                SELECT user_id, MAX(best_score) as best_score, best_time, 
+                       NULL as time_formatted, player_name, is_verified, updated_at 
+                FROM sigma_scores 
+                GROUP BY user_id`);
+      }
+      
+      // Удаляем оригинальную таблицу
+      db.run(`DROP TABLE IF EXISTS sigma_scores`);
+      
+      // Создаем таблицу заново с правильной структурой, включая time_formatted
+      db.run(`CREATE TABLE sigma_scores (
+        user_id TEXT PRIMARY KEY,
+        best_score INTEGER DEFAULT 0,
+        best_time REAL DEFAULT 0,
+        time_formatted TEXT,
+        player_name TEXT,
+        is_verified INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`);
+      
+      // Восстанавливаем данные
+      db.run(`INSERT INTO sigma_scores SELECT * FROM temp_scores`);
+      
+      // Удаляем временную таблицу
+      db.run(`DROP TABLE IF EXISTS temp_scores`);
+      
+      // Заполняем поле time_formatted для существующих записей
+      if (!hasTimeFormatted) {
+        db.run(`
+          UPDATE sigma_scores 
+          SET time_formatted = 
+            CASE 
+              WHEN best_time > 0 THEN 
+                (CAST(FLOOR(best_time / 60) AS TEXT) || ':' || 
+                 CASE WHEN FLOOR(best_time % 60) < 10 THEN '0' ELSE '' END ||
+                 CAST(FLOOR(best_time % 60) AS TEXT) || '.' ||
+                 SUBSTR('000' || CAST(ROUND((best_time - FLOOR(best_time)) * 1000) AS TEXT), -3, 3))
+              ELSE '00:00.000' 
+            END
+          WHERE time_formatted IS NULL
+        `);
+      }
+    });
+  });
+}
+
+// Вызовите эту функцию при запуске сервера
+rebuildSigmaScoresTable();
+
+// Функция для проверки структуры таблицы
+function checkTableStructure() {
+  db.get("PRAGMA table_info(sigma_scores)", [], (err, rows) => {
+    if (err) {
+      return;
+    }
+    
+    console.log("Current sigma_scores table structure:", rows);
+    
+    // Проверяем наличие PRIMARY KEY
+    db.get("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='sigma_scores' AND sql LIKE '%PRIMARY KEY%'", [], (err, row) => {
+      if (err) {
+        return;
+      }
+      
+      if (row.count === 0) {
+        console.warn("WARNING: sigma_scores table does not have a PRIMARY KEY constraint!");
+      } else {
+        console.log("sigma_scores table has a PRIMARY KEY constraint.");
+      }
+    });
+  });
+}
+
+// Вызовите эту функцию при запуске сервера
+checkTableStructure();
 
 // Обновляем API-метод выхода
 app.post('/api/logout', (req, res) => {
@@ -520,34 +582,42 @@ app.post('/api/save-score', (req, res) => {
   const playerName = req.user.username;
   
   // Сначала получаем текущий лучший результат пользователя
-  db.query('SELECT best_score, best_time FROM sigma_scores WHERE user_id = $1', [userId], (err, result) => {
+  db.get('SELECT best_score, best_time FROM sigma_scores WHERE user_id = ?', [userId], (err, row) => {
     if (err) {
       return res.status(500).json({ error: "Ошибка при сохранении" });
     }
     
     // Если у пользователя уже есть результат, сравниваем с текущим
-    if (result.rows.length > 0) {
+    if (row) {
       // Сохраняем только если текущий счет лучше предыдущего
-      if (score > result.rows[0].best_score) {
-        db.query('UPDATE sigma_scores SET best_score = $1, best_time = $2, time_formatted = $3, player_name = $4, updated_at = CURRENT_TIMESTAMP WHERE user_id = $5', [score, time, timeFormatted, playerName, userId], (updateErr) => {
-          if (updateErr) {
-            return res.status(500).json({ error: "Ошибка при сохранении" });
+      if (score > row.best_score) {
+        db.run(
+          'UPDATE sigma_scores SET best_score = ?, best_time = ?, time_formatted = ?, player_name = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+          [score, time, timeFormatted, playerName, userId],
+          function(updateErr) {
+            if (updateErr) {
+              return res.status(500).json({ error: "Ошибка при сохранении" });
+            }
+            
+            res.json({ success: true, message: "Результат успешно обновлен" });
           }
-          
-          res.json({ success: true, message: "Результат успешно обновлен" });
-        });
+        );
       } else {
         res.json({ success: true, message: "Текущий результат не превышает лучший" });
       }
     } else {
       // Если это первый результат пользователя
-      db.query('INSERT INTO sigma_scores (user_id, best_score, best_time, time_formatted, player_name) VALUES ($1, $2, $3, $4, $5)', [userId, score, time, timeFormatted, playerName], (insertErr) => {
-        if (insertErr) {
-          return res.status(500).json({ error: "Ошибка при сохранении" });
+      db.run(
+        'INSERT INTO sigma_scores (user_id, best_score, best_time, time_formatted, player_name) VALUES (?, ?, ?, ?, ?)',
+        [userId, score, time, timeFormatted, playerName],
+        function(insertErr) {
+          if (insertErr) {
+            return res.status(500).json({ error: "Ошибка при сохранении" });
+          }
+          
+          res.json({ success: true, message: "Результат успешно сохранен" });
         }
-        
-        res.json({ success: true, message: "Результат успешно сохранен" });
-      });
+      );
     }
   });
 });
@@ -555,7 +625,7 @@ app.post('/api/save-score', (req, res) => {
 // Добавьте эту функцию в server.js и вызовите ее после запуска сервера
 function fixTimeFormattedInDatabase() {
   // Запрос, который обновляет все time_formatted на основе поля best_time
-  db.query(`
+  db.run(`
     UPDATE sigma_scores 
     SET time_formatted = 
       CASE 
@@ -566,7 +636,7 @@ function fixTimeFormattedInDatabase() {
            SUBSTR('000' || CAST(FLOOR((best_time - FLOOR(best_time)) * 1000) AS TEXT), -3, 3))
         ELSE '00:00.000' 
       END
-  `, (err) => {
+  `, function(err) {
     if (err) {
       // Обработка ошибки при обновлении форматов времени
     }
@@ -576,31 +646,8 @@ function fixTimeFormattedInDatabase() {
 // Вызовите функцию после запуска сервера
 fixTimeFormattedInDatabase();
 
-// Добавьте маршрут для проверки здоровья
-app.get('/health', (req, res) => {
-  if (healthCheck.isHealthy) {
-    res.status(200).json({
-      status: 'ok',
-      uptime: Date.now() - healthCheck.startTime
-    });
-  } else {
-    res.status(500).json({ status: 'error' });
-  }
-});
-
-// Обработка ошибок process
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  healthCheck.isHealthy = false;
-});
-
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-  healthCheck.isHealthy = false;
-});
-
 // Запуск сервера
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
+const PORT = process.env.PORT || 5501;
+app.listen(PORT, () => {
+    // console.log(`Server running at http://localhost:${PORT}`);
 }); 

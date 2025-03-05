@@ -657,38 +657,6 @@
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="game.js"></script>
         <script>
-            $.ajaxSetup({
-                xhrFields: {
-                    withCredentials: true
-                },
-                crossDomain: true
-            });
-
-            // Обновляем URL для API запросов
-            const API_URL = window.location.origin;
-
-            // Проверка авторизации
-            function checkAuthStatus() {
-                $.ajax({
-                    url: `${API_URL}/api/me`,
-                    method: 'GET',
-                    xhrFields: {
-                        withCredentials: true
-                    },
-                    success: function(data) {
-                        if (data.authenticated) {
-                            isAuthenticated = true;
-                            updateUserInfo(data);
-                        } else {
-                            showLoginButton();
-                        }
-                    },
-                    error: function() {
-                        showLoginButton();
-                    }
-                });
-            }
-            
             // Флаг авторизации, изначально false
             let isAuthenticated = false;
             
@@ -728,31 +696,26 @@
                     e.preventDefault(); // Предотвращаем любое действие по умолчанию
                     e.stopPropagation(); // Останавливаем распространение события
                     
+                    // Проверяем, не запущена ли уже игра
+                    if ($('#game-container').hasClass('game-active')) {
+                        return; // Если игра уже запущена, игнорируем нажатие
+                    }
+                    
                     // Проверяем статус авторизации перед запуском игры
                     if (isAuthenticated) {
                         // Пользователь авторизован - запускаем игру
                         startGame();
+                        // Сразу после запуска игры отключаем кнопку
+                        $('#play-button').prop('disabled', true)
+                            .css({
+                                'opacity': '0.5',
+                                'cursor': 'not-allowed'
+                            })
+                            .off('click'); // Удаляем обработчик клика
                     } else {
-                        // Если не авторизован - принудительно проверяем статус авторизации
-                        $.ajax({
-                            url: '/api/auth/status',
-                            method: 'GET',
-                            success: function(data) {
-                                if (data.authenticated) {
-                                    isAuthenticated = true;
-                                    startGame();
-                                } else {
-                                    // Пользователь не авторизован - показываем сообщение
-                                    showAuthRequiredMessage();
-                                }
-                            },
-                            error: function() {
-                                showAuthRequiredMessage();
-                            }
-                        });
+                        // Пользователь не авторизован - показываем сообщение
+                        showAuthRequiredMessage();
                     }
-                    
-                    return false; // Для дополнительной уверенности
                 });
                 
                 // Удаляем фиксированную кнопку логина, если она существует
@@ -878,6 +841,27 @@
                 
                 // Затем выполняем последовательность действий для выхода
                 window.location.href = '/logout?t=' + new Date().getTime();
+            }
+
+            // Добавляем функцию для сброса состояния кнопки Play при завершении игры
+            function resetPlayButton() {
+                $('#play-button').prop('disabled', false)
+                    .css({
+                        'opacity': '1',
+                        'cursor': 'pointer'
+                    });
+                
+                // Переподключаем обработчик клика
+                $('#play-button').off('click').on('click', function(e) {
+                    // ... тот же код обработчика ...
+                });
+            }
+
+            // В функции endGame добавляем вызов resetPlayButton
+            function endGame() {
+                // ... существующий код ...
+                resetPlayButton();
+                // ... существующий код ...
             }
         </script>
         
