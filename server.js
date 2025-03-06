@@ -232,14 +232,14 @@ app.post('/api/update-sigma-score', async (req, res) => {
       ON CONFLICT (user_id) DO UPDATE SET
         display_name = $2,
         avatar = $3,
-        best_score = CASE WHEN sigma_scores.best_score < $4 THEN $4 ELSE sigma_scores.best_score END,
+        best_score = CASE WHEN sigma_scores.best_score < $4 OR sigma_scores.best_score IS NULL THEN $4 ELSE sigma_scores.best_score END,
         best_time = CASE 
-          WHEN sigma_scores.best_time = 0 THEN $5
+          WHEN sigma_scores.best_time IS NULL OR sigma_scores.best_time = 0 THEN $5
           WHEN sigma_scores.best_time > $5 THEN $5
           ELSE sigma_scores.best_time 
         END,
         time_formatted = CASE 
-          WHEN sigma_scores.best_time = 0 THEN $6
+          WHEN sigma_scores.best_time IS NULL OR sigma_scores.best_time = 0 THEN $6
           WHEN sigma_scores.best_time > $5 THEN $6
           ELSE sigma_scores.time_formatted 
         END
@@ -438,20 +438,72 @@ async function initDatabase() {
       )
     `);
 
-    // Полная инициализация таблицы sigma_scores
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS sigma_scores (
-        user_id TEXT PRIMARY KEY REFERENCES users(discord_id),
-        sigma_score INTEGER DEFAULT 0,
-        best_score INTEGER DEFAULT 0,
-        best_time FLOAT DEFAULT 0,
-        time_formatted TEXT DEFAULT '00:00.000',
-        is_verified BOOLEAN DEFAULT false,
-        last_updated TIMESTAMP DEFAULT NOW(),
-        display_name TEXT,
-        avatar TEXT
+    // Проверяем существование таблицы sigma_scores
+    const tableExists = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'sigma_scores'
       )
     `);
+    
+    if (tableExists.rows[0].exists) {
+      console.log('Таблица sigma_scores существует, проверяем структуру...');
+      
+      // Проверяем существование колонки best_score
+      const bestScoreExists = await client.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_name = 'sigma_scores' AND column_name = 'best_score'
+        )
+      `);
+      
+      if (!bestScoreExists.rows[0].exists) {
+        console.log('Добавляем колонку best_score...');
+        await client.query(`ALTER TABLE sigma_scores ADD COLUMN best_score INTEGER DEFAULT 0`);
+      }
+
+      // Проверяем другие необходимые колонки
+      const columnsToCheck = ['best_time', 'time_formatted', 'display_name', 'avatar', 'is_verified'];
+      for (const column of columnsToCheck) {
+        const columnExists = await client.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_name = 'sigma_scores' AND column_name = $1
+          )
+        `, [column]);
+        
+        if (!columnExists.rows[0].exists) {
+          console.log(`Добавляем колонку ${column}...`);
+          let dataType = 'TEXT';
+          let defaultValue = "''";
+          
+          if (column === 'best_time') {
+            dataType = 'FLOAT';
+            defaultValue = '0';
+          } else if (column === 'is_verified') {
+            dataType = 'BOOLEAN';
+            defaultValue = 'false';
+          }
+          
+          await client.query(`ALTER TABLE sigma_scores ADD COLUMN ${column} ${dataType} DEFAULT ${defaultValue}`);
+        }
+      }
+    } else {
+      // Создаем таблицу с нуля с правильной структурой
+      await client.query(`
+        CREATE TABLE sigma_scores (
+          user_id TEXT PRIMARY KEY REFERENCES users(discord_id),
+          sigma_score INTEGER DEFAULT 0,
+          best_score INTEGER DEFAULT 0,
+          best_time FLOAT DEFAULT 0,
+          time_formatted TEXT DEFAULT '00:00.000',
+          is_verified BOOLEAN DEFAULT false,
+          last_updated TIMESTAMP DEFAULT NOW(),
+          display_name TEXT,
+          avatar TEXT
+        )
+      `);
+    }
 
     console.log('Database tables verified/created');
   } catch (err) {
