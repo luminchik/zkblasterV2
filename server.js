@@ -389,27 +389,31 @@ async function initDatabase() {
   }
 }
 
-// Переместить определение маршрута перед startServer()
+// Обновите маршрут для вопросов, используя полный JSON
 app.get('/api/questions', (req, res) => {
   try {
-    // Хардкодим вопросы прямо в коде сервера
-    const questions = [
-      {
-        "question": "What is the Succinct Prover Network?",
-        "answers": [
-            "ZK proof system",
-            "Blockchain",
-            "Smart contract", 
-            "Oracle"
-        ],
-        "correct": 0
-      },
-      // Скопируйте сюда все вопросы из questions.json
-      // ...
-    ];
+    // Загружаем из src/data/questions.json или из корня проекта
+    const questionsPath = path.join(__dirname, 'src/data/questions.json');
     
-    const shuffled = [...questions].sort(() => Math.random() - 0.5);
-    res.json(shuffled);
+    fs.readFile(questionsPath, 'utf8', (err, data) => {
+      if (err) {
+        console.error('Ошибка чтения файла questions.json:', err);
+        
+        // Используем хардкод из скопированного JSON выше
+        const questions = JSON.parse(fs.readFileSync(path.join(__dirname, 'questions.json'), 'utf8'));
+        const shuffled = [...questions].sort(() => Math.random() - 0.5);
+        return res.json(shuffled);
+      }
+      
+      try {
+        const questions = JSON.parse(data);
+        const shuffled = [...questions].sort(() => Math.random() - 0.5);
+        res.json(shuffled);
+      } catch (jsonError) {
+        console.error('Ошибка парсинга JSON:', jsonError);
+        res.status(500).json({ error: 'Failed to parse questions JSON' });
+      }
+    });
   } catch (error) {
     console.error('Error handling questions:', error);
     res.status(500).json({ error: 'Failed to load questions' });
