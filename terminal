@@ -11,3 +11,12 @@ npm uninstall connect-sqlite3
 npm install connect-pg-simple@9.0.1
 
 npm view connect-pg-simple versions 
+
+# Создаем директорию для статических файлов если еще нет
+mkdir -p src/data
+# Копируем файл questions.json в директорию src/data
+cp questions.json src/data/ 
+
+git add .
+git commit -m "Fix questions loading - move questions.json to static folder"
+git push origin main 

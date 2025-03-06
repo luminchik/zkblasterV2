@@ -392,17 +392,26 @@ async function initDatabase() {
 // Переместить определение маршрута перед startServer()
 app.get('/api/questions', (req, res) => {
   try {
-    const questionsPath = path.join(__dirname, 'questions.json');
-    const questions = require(questionsPath);
-    if (!Array.isArray(questions)) throw new Error('Invalid questions format');
+    // Хардкодим вопросы прямо в коде сервера
+    const questions = [
+      {
+        "question": "What is the Succinct Prover Network?",
+        "answers": [
+            "ZK proof system",
+            "Blockchain",
+            "Smart contract", 
+            "Oracle"
+        ],
+        "correct": 0
+      },
+      // Скопируйте сюда все вопросы из questions.json
+      // ...
+    ];
     
     const shuffled = [...questions].sort(() => Math.random() - 0.5);
     res.json(shuffled);
-    
-    console.log('Путь к questions.json:', questionsPath);
-    console.log('Файл существует:', fs.existsSync(questionsPath));
   } catch (error) {
-    console.error('Error loading questions:', error);
+    console.error('Error handling questions:', error);
     res.status(500).json({ error: 'Failed to load questions' });
   }
 });
