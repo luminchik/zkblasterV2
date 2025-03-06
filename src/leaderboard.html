@@ -355,35 +355,41 @@
     
     <script>
         $(document).ready(function() {
+            // Добавляем глобальные переменные для пагинации
+            let currentPage = 1;
+            let totalPages = 1;
+            let pageSize = 10;
+            
             // Функция загрузки данных лидерборда
             function loadLeaderboardData(page = 1) {
+                currentPage = page; // Сохраняем текущую страницу
+                
                 $.ajax({
                     url: '/api/leaderboard',
-                    data: { page: page, pageSize: 10 },
+                    data: { page: page, pageSize: pageSize },
                     success: function(response) {
                         // Проверяем формат ответа
                         let data;
-                        let pages = 1;
-                        let currentPage = page;
                         
                         if (Array.isArray(response)) {
                             // Старый формат - просто массив
                             data = response;
+                            totalPages = 1; // Предполагаем одну страницу для совместимости
                         } else if (response && response.data) {
                             // Новый формат с пагинацией
                             data = response.data;
-                            pages = response.pages || 1;
-                            currentPage = response.current_page || 1;
+                            totalPages = response.pages || 1;
+                            currentPage = response.current_page || page;
                         } else {
                             console.error('Неизвестный формат ответа:', response);
                             return;
                         }
                         
                         // Отрисовываем данные
-                        renderLeaderboard(data);
+                        renderLeaderboard(data, currentPage, pageSize);
                         
-                        // Отрисовываем пагинацию
-                        renderPagination(pages, currentPage);
+                        // Обновляем кнопки пагинации
+                        updatePaginationButtons();
                     },
                     error: function(xhr, status, error) {
                         console.error('Ошибка загрузки лидерборда:', error);
@@ -392,49 +398,8 @@
                 });
             }
             
-            // Инициализация при загрузке страницы
-            loadLeaderboardData();
-            
-            // Функция для форматирования времени
-            function formatTime(timeInSeconds) {
-                if (!timeInSeconds) return "00:00.000";
-                
-                const minutes = Math.floor(timeInSeconds / 60);
-                const seconds = Math.floor(timeInSeconds % 60);
-                const milliseconds = Math.floor((timeInSeconds * 1000) % 1000);
-                
-                return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}.${String(milliseconds).padStart(3, '0')}`;
-            }
-            
-            // Функция для получения инициалов
-            function getInitials(name) {
-                if (!name) return '?';
-                
-                const parts = name.split(' ');
-                if (parts.length === 1) {
-                    return parts[0].charAt(0).toUpperCase();
-                }
-                
-                return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
-            }
-            
-            // Обработчики событий для кнопок пагинации
-            $('#prev-page').on('click', function() {
-                if (currentPage > 1) {
-                    currentPage--;
-                    loadLeaderboardData(currentPage);
-                }
-            });
-            
-            $('#next-page').on('click', function() {
-                if (currentPage < totalPages) {
-                    currentPage++;
-                    loadLeaderboardData(currentPage);
-                }
-            });
-            
-            // Отрисовываем данные лидерборда
-            function renderLeaderboard(data) {
+            // Передаем необходимые параметры в функцию
+            function renderLeaderboard(data, page, size) {
                 const tbody = $('#leaderboard-table tbody');
                 tbody.empty();
                 
@@ -444,8 +409,13 @@
                 }
                 
                 data.forEach((entry, index) => {
-                    // Расчет абсолютного ранга
-                    const rank = entry.rank || (currentPage * pageSize + index + 1);
+                    // Расчет абсолютного ранга с корректным смещением
+                    const offset = (page - 1) * size;
+                    const rank = index + 1 + offset;
+                    
+                    // Исправляем данные игрока и поля
+                    const playerName = entry.display_name || 'Unknown';
+                    const score = entry.best_score || 0;
                     
                     // Проверяем и исправляем формат времени
                     let timeDisplay = entry.time_formatted;
@@ -454,15 +424,17 @@
                     }
                     
                     // Получаем инициалы для аватарки
-                    const initials = getInitials(entry.player_name || 'Unknown');
+                    const initials = getInitials(playerName);
                     
                     // Цвет для аватарки
                     const colorClass = `avatar-bg-${(rank % 5) + 1}`;
                     
                     // Определяем, есть ли аватарка
                     let avatarHtml;
-                    if (entry.avatar_url) {
-                        avatarHtml = `<img src="${entry.avatar_url}" class="player-avatar" alt="${initials}" onerror="this.onerror=null; this.style.display='none'; this.parentNode.innerHTML='<div class=\'player-avatar ${colorClass}\'>${initials}</div>';">`;
+                    const avatarUrl = formatAvatarUrl(entry.user_id, entry.avatar);
+                    
+                    if (avatarUrl) {
+                        avatarHtml = `<img src="${avatarUrl}" class="player-avatar" alt="${initials}" onerror="this.onerror=null; this.style.display='none'; this.parentNode.innerHTML='<div class=\\'player-avatar ${colorClass}\\'>${initials}</div>';">`;
                     } else {
                         avatarHtml = `<div class="player-avatar ${colorClass}">${initials}</div>`;
                     }
@@ -488,10 +460,10 @@
                             <td class="rank-column">${medalHtml || rank}</td>
                             <td class="player-column">
                                 ${avatarHtml}
-                                <span>${entry.player_name || 'Unknown'}</span>
+                                <span>${playerName}</span>
                             </td>
                             <td class="score-column">
-                                ${entry.best_score}
+                                ${score}
                                 <span class="star-icon">⭐</span>
                             </td>
                             <td class="time-column">${timeDisplay}</td>
@@ -502,34 +474,57 @@
                 });
             }
             
-            // Отрисовываем пагинацию
-            function renderPagination(totalPages, currentPage) {
-                const paginationContainer = $('#pagination-container');
-                paginationContainer.empty();
-                
-                const prevButton = $('<button class="pagination-button">Previous</button>');
-                const nextButton = $('<button class="pagination-button">Next</button>');
-                
-                prevButton.on('click', function() {
-                    if (currentPage > 1) {
-                        currentPage--;
-                        loadLeaderboardData(currentPage);
-                    }
-                });
-                
-                nextButton.on('click', function() {
-                    if (currentPage < totalPages) {
-                        currentPage++;
-                        loadLeaderboardData(currentPage);
-                    }
-                });
-                
-                prevButton.toggleClass('disabled', currentPage === 1);
-                nextButton.toggleClass('disabled', currentPage === totalPages);
-                
-                paginationContainer.append(prevButton);
-                paginationContainer.append(nextButton);
+            // Функция для форматирования URL аватара Discord
+            function formatAvatarUrl(userId, avatarHash) {
+                if (!avatarHash) return null;
+                if (avatarHash.startsWith('http')) return avatarHash;
+                return `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png`;
             }
+            
+            // Функция для обновления кнопок пагинации
+            function updatePaginationButtons() {
+                // Обновляем состояние кнопок пагинации
+                $('#prev-page').toggleClass('disabled', currentPage <= 1);
+                $('#next-page').toggleClass('disabled', currentPage >= totalPages);
+            }
+            
+            // Обработчики кнопок пагинации
+            $('#prev-page').on('click', function() {
+                if (currentPage > 1) {
+                    loadLeaderboardData(currentPage - 1);
+                }
+            });
+            
+            $('#next-page').on('click', function() {
+                if (currentPage < totalPages) {
+                    loadLeaderboardData(currentPage + 1);
+                }
+            });
+            
+            // Остальные вспомогательные функции
+            function formatTime(timeInSeconds) {
+                if (!timeInSeconds) return "00:00.000";
+                
+                const minutes = Math.floor(timeInSeconds / 60);
+                const seconds = Math.floor(timeInSeconds % 60);
+                const milliseconds = Math.floor((timeInSeconds * 1000) % 1000);
+                
+                return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}.${String(milliseconds).padStart(3, '0')}`;
+            }
+            
+            function getInitials(name) {
+                if (!name) return '?';
+                
+                const parts = name.split(' ');
+                if (parts.length === 1) {
+                    return parts[0].charAt(0).toUpperCase();
+                }
+                
+                return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+            }
+            
+            // Инициализация при загрузке страницы
+            loadLeaderboardData();
         });
     </script>
 </body>

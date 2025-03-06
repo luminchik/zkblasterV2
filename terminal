@@ -25,11 +25,11 @@ git add server.js
 git add src/data/questions.json
 git add questions.json
 
-# Создаём осмысленный коммит
-git commit -m "Fix leaderboard API with backwards compatibility"
+# Создаём информативный коммит
+git commit -m "Исправлен лидерборд: добавлена поддержка пагинации и корректная обработка данных из API"
 
-# Отправляем изменения в удалённый репозиторий
-git push origin main 
+# Отправляем изменения на сервер
+git push origin main
 
 # Получаем содержимое файла leaderboard.html
 cat src/leaderboard.html 
