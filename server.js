@@ -343,8 +343,55 @@ app.post('/api/verify-score', async (req, res) => {
   }
 });
 
+// Переместить маршрут ПЕРЕД обработчики ошибок
+app.get('/api/questions', (req, res) => {
+  try {
+    // Загружаем из src/data/questions.json или из корня проекта
+    const questionsPath = path.join(__dirname, 'src/data/questions.json');
+    
+    fs.readFile(questionsPath, 'utf8', (err, data) => {
+      if (err) {
+        console.error('Ошибка чтения файла questions.json:', err);
+        
+        // Используем резервный файл из корня проекта
+        const fallbackPath = path.join(__dirname, 'questions.json');
+        fs.readFile(fallbackPath, 'utf8', (fallbackErr, fallbackData) => {
+          if (fallbackErr) {
+            console.error('Ошибка чтения резервного файла:', fallbackErr);
+            return res.status(500).json({ error: 'Failed to load questions' });
+          }
+          
+          try {
+            const questions = JSON.parse(fallbackData);
+            const shuffled = [...questions].sort(() => Math.random() - 0.5);
+            res.json(shuffled);
+          } catch (e) {
+            console.error('Ошибка парсинга JSON (резервный):', e);
+            res.status(500).json({ error: 'Failed to parse questions JSON' });
+          }
+        });
+        return;
+      }
+      
+      try {
+        const questions = JSON.parse(data);
+        const shuffled = [...questions].sort(() => Math.random() - 0.5);
+        res.json(shuffled);
+      } catch (jsonError) {
+        console.error('Ошибка парсинга JSON:', jsonError);
+        res.status(500).json({ error: 'Failed to parse questions JSON' });
+      }
+    });
+  } catch (error) {
+    console.error('Error handling questions:', error);
+    res.status(500).json({ error: 'Failed to load questions' });
+  }
+});
+
+// ПОСЛЕ всех маршрутов, НО ПЕРЕД app.listen
 // Добавляем обработчик ошибок
 app.use((err, req, res, next) => {
+    console.error('Server error:', err);
     res.status(500).json({ error: 'Internal server error' });
 });
 
@@ -388,37 +435,6 @@ async function initDatabase() {
     throw err;
   }
 }
-
-// Обновите маршрут для вопросов, используя полный JSON
-app.get('/api/questions', (req, res) => {
-  try {
-    // Загружаем из src/data/questions.json или из корня проекта
-    const questionsPath = path.join(__dirname, 'src/data/questions.json');
-    
-    fs.readFile(questionsPath, 'utf8', (err, data) => {
-      if (err) {
-        console.error('Ошибка чтения файла questions.json:', err);
-        
-        // Используем хардкод из скопированного JSON выше
-        const questions = JSON.parse(fs.readFileSync(path.join(__dirname, 'questions.json'), 'utf8'));
-        const shuffled = [...questions].sort(() => Math.random() - 0.5);
-        return res.json(shuffled);
-      }
-      
-      try {
-        const questions = JSON.parse(data);
-        const shuffled = [...questions].sort(() => Math.random() - 0.5);
-        res.json(shuffled);
-      } catch (jsonError) {
-        console.error('Ошибка парсинга JSON:', jsonError);
-        res.status(500).json({ error: 'Failed to parse questions JSON' });
-      }
-    });
-  } catch (error) {
-    console.error('Error handling questions:', error);
-    res.status(500).json({ error: 'Failed to load questions' });
-  }
-});
 
 // Обновленная функция startServer
 async function startServer() {
