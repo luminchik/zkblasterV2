@@ -188,15 +188,38 @@ app.get('/api/sigma-best-score', async (req, res) => {
   }
 });
 
-// Обновить лучший результат
+// Обновить конечную точку для сохранения результатов
 app.post('/api/update-sigma-score', async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  try {  
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-  const { score, time, timeFormatted } = req.body;
+    const { score, time, timeFormatted } = req.body;
+    
+    console.log('Обновление результата:', { 
+      userId: req.user.discord_id, 
+      score, 
+      time, 
+      timeFormatted 
+    });
 
-  try {
+    // Сначала проверяем и создаем пользователя, если он не существует
+    const userCheckResult = await client.query(
+      'SELECT * FROM users WHERE discord_id = $1',
+      [req.user.discord_id]
+    );
+    
+    // Если пользователя нет, создаем его
+    if (userCheckResult.rows.length === 0) {
+      await client.query(
+        'INSERT INTO users (discord_id, display_name, avatar) VALUES ($1, $2, $3)',
+        [req.user.discord_id, req.user.display_name || 'Гость', req.user.avatar || null]
+      );
+      console.log('Создан новый пользователь:', req.user.discord_id);
+    }
+
+    // Теперь обновляем счет
     await client.query(`
       INSERT INTO sigma_scores (
         user_id, 
@@ -222,17 +245,18 @@ app.post('/api/update-sigma-score', async (req, res) => {
         END
     `, [
       req.user.discord_id,
-      req.user.display_name,
-      req.user.avatar,
+      req.user.display_name || 'Гость',
+      req.user.avatar || null,
       score,
       time,
       timeFormatted
     ]);
     
+    console.log('Результат успешно обновлен');
     res.json({ success: true });
   } catch (error) {
-    console.error('Database error:', error);
-    res.status(500).json({ error: 'Database error' });
+    console.error('Ошибка обновления результата:', error);
+    res.status(500).json({ error: 'Database error', details: error.message });
   }
 });
 
