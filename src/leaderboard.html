@@ -355,119 +355,44 @@
     
     <script>
         $(document).ready(function() {
-            // Текущая страница и размер страницы
-            let currentPage = 0;
-            const pageSize = 10; // Количество записей на странице
-            let totalPages = 0;
-            
-            // Загрузка данных с пагинацией
-            function loadLeaderboardData() {
+            // Функция загрузки данных лидерборда
+            function loadLeaderboardData(page = 1) {
                 $.ajax({
-                    url: `/api/leaderboard?page=${currentPage}&limit=${pageSize}`,
-                    method: 'GET',
+                    url: '/api/leaderboard',
+                    data: { page: page, pageSize: 10 },
                     success: function(response) {
-                        // Данные для таблицы находятся в поле leaderboard
-                        const data = response.leaderboard;
+                        // Проверяем формат ответа
+                        let data;
+                        let pages = 1;
+                        let currentPage = page;
                         
-                        // Информация о пагинации
-                        const pagination = response.pagination;
-                        totalPages = pagination.pages;
-                        
-                        // Обновляем таблицу
-                        const tbody = $('#leaderboard-table tbody');
-                        tbody.empty();
-                        
-                        if (!data || data.length === 0) {
-                            tbody.append('<tr><td colspan="4" style="text-align:center">No data available</td></tr>');
+                        if (Array.isArray(response)) {
+                            // Старый формат - просто массив
+                            data = response;
+                        } else if (response && response.data) {
+                            // Новый формат с пагинацией
+                            data = response.data;
+                            pages = response.pages || 1;
+                            currentPage = response.current_page || 1;
+                        } else {
+                            console.error('Неизвестный формат ответа:', response);
                             return;
                         }
                         
-                        data.forEach((entry, index) => {
-                            // Расчет абсолютного ранга
-                            const rank = entry.rank || (currentPage * pageSize + index + 1);
-                            
-                            // Проверяем и исправляем формат времени
-                            let timeDisplay = entry.time_formatted;
-                            if (!timeDisplay || timeDisplay.includes('0.0:')) {
-                                timeDisplay = formatTime(entry.best_time);
-                            }
-                            
-                            // Получаем инициалы для аватарки
-                            const initials = getInitials(entry.player_name || 'Unknown');
-                            
-                            // Цвет для аватарки
-                            const colorClass = `avatar-bg-${(rank % 5) + 1}`;
-                            
-                            // Определяем, есть ли аватарка
-                            let avatarHtml;
-                            if (entry.avatar_url) {
-                                avatarHtml = `<img src="${entry.avatar_url}" class="player-avatar" alt="${initials}" onerror="this.onerror=null; this.style.display='none'; this.parentNode.innerHTML='<div class=\'player-avatar ${colorClass}\'>${initials}</div>';">`;
-                            } else {
-                                avatarHtml = `<div class="player-avatar ${colorClass}">${initials}</div>`;
-                            }
-                            
-                            // Определяем класс строки в зависимости от ранга
-                            let rowClass = '';
-                            let medalHtml = '';
-                            
-                            if (rank === 1) {
-                                rowClass = 'top-rank rank-1-row';
-                                medalHtml = '<div class="medal medal-gold">1</div>';
-                            } else if (rank === 2) {
-                                rowClass = 'top-rank rank-2-row';
-                                medalHtml = '<div class="medal medal-silver">2</div>';
-                            } else if (rank === 3) {
-                                rowClass = 'top-rank rank-3-row';
-                                medalHtml = '<div class="medal medal-bronze">3</div>';
-                            }
-                            
-                            // Создаем строку таблицы
-                            const row = $(`
-                                <tr class="${rowClass}">
-                                    <td class="rank-column">${medalHtml || rank}</td>
-                                    <td class="player-column">
-                                        ${avatarHtml}
-                                        <span>${entry.player_name || 'Unknown'}</span>
-                                    </td>
-                                    <td class="score-column">
-                                        ${entry.best_score}
-                                        <span class="star-icon">⭐</span>
-                                    </td>
-                                    <td class="time-column">${timeDisplay}</td>
-                                </tr>
-                            `);
-                            
-                            tbody.append(row);
-                        });
+                        // Отрисовываем данные
+                        renderLeaderboard(data);
                         
-                        // Обновляем состояние кнопок пагинации
-                        $('#prev-page').toggleClass('disabled', currentPage === 0);
-                        $('#next-page').toggleClass('disabled', currentPage >= totalPages - 1);
+                        // Отрисовываем пагинацию
+                        renderPagination(pages, currentPage);
                     },
-                    error: function(err) {
-                        $('#leaderboard-table tbody').html(
-                            '<tr><td colspan="4" style="text-align:center">Error loading data</td></tr>'
-                        );
+                    error: function(xhr, status, error) {
+                        console.error('Ошибка загрузки лидерборда:', error);
+                        $('#leaderboard-table tbody').html('<tr><td colspan="4" class="text-center">Ошибка загрузки данных</td></tr>');
                     }
                 });
             }
             
-            // Обработчики событий для кнопок пагинации
-            $('#prev-page').on('click', function() {
-                if (currentPage > 0) {
-                    currentPage--;
-                    loadLeaderboardData();
-                }
-            });
-            
-            $('#next-page').on('click', function() {
-                if (currentPage < totalPages - 1) {
-                    currentPage++;
-                    loadLeaderboardData();
-                }
-            });
-            
-            // Загружаем данные при загрузке страницы
+            // Инициализация при загрузке страницы
             loadLeaderboardData();
             
             // Функция для форматирования времени
@@ -491,6 +416,119 @@
                 }
                 
                 return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+            }
+            
+            // Обработчики событий для кнопок пагинации
+            $('#prev-page').on('click', function() {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadLeaderboardData(currentPage);
+                }
+            });
+            
+            $('#next-page').on('click', function() {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadLeaderboardData(currentPage);
+                }
+            });
+            
+            // Отрисовываем данные лидерборда
+            function renderLeaderboard(data) {
+                const tbody = $('#leaderboard-table tbody');
+                tbody.empty();
+                
+                if (!data || data.length === 0) {
+                    tbody.append('<tr><td colspan="4" style="text-align:center">No data available</td></tr>');
+                    return;
+                }
+                
+                data.forEach((entry, index) => {
+                    // Расчет абсолютного ранга
+                    const rank = entry.rank || (currentPage * pageSize + index + 1);
+                    
+                    // Проверяем и исправляем формат времени
+                    let timeDisplay = entry.time_formatted;
+                    if (!timeDisplay || timeDisplay.includes('0.0:')) {
+                        timeDisplay = formatTime(entry.best_time);
+                    }
+                    
+                    // Получаем инициалы для аватарки
+                    const initials = getInitials(entry.player_name || 'Unknown');
+                    
+                    // Цвет для аватарки
+                    const colorClass = `avatar-bg-${(rank % 5) + 1}`;
+                    
+                    // Определяем, есть ли аватарка
+                    let avatarHtml;
+                    if (entry.avatar_url) {
+                        avatarHtml = `<img src="${entry.avatar_url}" class="player-avatar" alt="${initials}" onerror="this.onerror=null; this.style.display='none'; this.parentNode.innerHTML='<div class=\'player-avatar ${colorClass}\'>${initials}</div>';">`;
+                    } else {
+                        avatarHtml = `<div class="player-avatar ${colorClass}">${initials}</div>`;
+                    }
+                    
+                    // Определяем класс строки в зависимости от ранга
+                    let rowClass = '';
+                    let medalHtml = '';
+                    
+                    if (rank === 1) {
+                        rowClass = 'top-rank rank-1-row';
+                        medalHtml = '<div class="medal medal-gold">1</div>';
+                    } else if (rank === 2) {
+                        rowClass = 'top-rank rank-2-row';
+                        medalHtml = '<div class="medal medal-silver">2</div>';
+                    } else if (rank === 3) {
+                        rowClass = 'top-rank rank-3-row';
+                        medalHtml = '<div class="medal medal-bronze">3</div>';
+                    }
+                    
+                    // Создаем строку таблицы
+                    const row = $(`
+                        <tr class="${rowClass}">
+                            <td class="rank-column">${medalHtml || rank}</td>
+                            <td class="player-column">
+                                ${avatarHtml}
+                                <span>${entry.player_name || 'Unknown'}</span>
+                            </td>
+                            <td class="score-column">
+                                ${entry.best_score}
+                                <span class="star-icon">⭐</span>
+                            </td>
+                            <td class="time-column">${timeDisplay}</td>
+                        </tr>
+                    `);
+                    
+                    tbody.append(row);
+                });
+            }
+            
+            // Отрисовываем пагинацию
+            function renderPagination(totalPages, currentPage) {
+                const paginationContainer = $('#pagination-container');
+                paginationContainer.empty();
+                
+                const prevButton = $('<button class="pagination-button">Previous</button>');
+                const nextButton = $('<button class="pagination-button">Next</button>');
+                
+                prevButton.on('click', function() {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        loadLeaderboardData(currentPage);
+                    }
+                });
+                
+                nextButton.on('click', function() {
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        loadLeaderboardData(currentPage);
+                    }
+                });
+                
+                prevButton.toggleClass('disabled', currentPage === 1);
+                nextButton.toggleClass('disabled', currentPage === totalPages);
+                
+                paginationContainer.append(prevButton);
+                paginationContainer.append(nextButton);
             }
         });
     </script>

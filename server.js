@@ -260,9 +260,12 @@ app.post('/api/update-sigma-score', async (req, res) => {
   }
 });
 
-// Получить лидерборд
+// Обновляем API лидерборда для поддержки обоих форматов
 app.get('/api/leaderboard', async (req, res) => {
   try {
+    // Получаем параметр формата из запроса
+    const useNewFormat = req.query.format === 'new';
+    
     // Получаем номер страницы и размер страницы из параметров запроса
     const page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
@@ -288,13 +291,19 @@ app.get('/api/leaderboard', async (req, res) => {
       LIMIT $1 OFFSET $2
     `, [pageSize, skip]);
     
-    // Формируем ответ с пагинацией
-    res.json({
-      data: result.rows,
-      pages: totalPages,
-      current_page: page,
-      total_records: totalRecords
-    });
+    // Возвращаем результат в нужном формате
+    if (useNewFormat) {
+      // Новый формат с пагинацией
+      res.json({
+        data: result.rows,
+        pages: totalPages,
+        current_page: page,
+        total_records: totalRecords
+      });
+    } else {
+      // Старый формат - просто массив результатов
+      res.json(result.rows);
+    }
   } catch (error) {
     console.error('Database error:', error);
     res.status(500).json({ error: 'Database error' });

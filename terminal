@@ -17,6 +17,19 @@ mkdir -p src/data
 # Копируем файл questions.json в директорию src/data
 cp questions.json src/data/ 
 
-git add .
-git commit -m "Fix questions loading - move questions.json to static folder"
+# Проверяем статус изменений
+git status
+
+# Добавляем изменённые файлы в индекс
+git add server.js
+git add src/data/questions.json
+git add questions.json
+
+# Создаём осмысленный коммит
+git commit -m "Fix leaderboard API with backwards compatibility"
+
+# Отправляем изменения в удалённый репозиторий
 git push origin main 
+
+# Получаем содержимое файла leaderboard.html
+cat src/leaderboard.html 
