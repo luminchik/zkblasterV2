@@ -263,6 +263,17 @@ app.post('/api/update-sigma-score', async (req, res) => {
 // Получить лидерборд
 app.get('/api/leaderboard', async (req, res) => {
   try {
+    // Получаем номер страницы и размер страницы из параметров запроса
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+    const skip = (page - 1) * pageSize;
+    
+    // Получаем общее количество записей
+    const countResult = await client.query('SELECT COUNT(*) FROM sigma_scores');
+    const totalRecords = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalRecords / pageSize);
+    
+    // Получаем данные для текущей страницы
     const result = await client.query(`
       SELECT 
         user_id,
@@ -274,9 +285,16 @@ app.get('/api/leaderboard', async (req, res) => {
         is_verified
       FROM sigma_scores 
       ORDER BY best_score DESC 
-      LIMIT 100
-    `);
-    res.json(result.rows);
+      LIMIT $1 OFFSET $2
+    `, [pageSize, skip]);
+    
+    // Формируем ответ с пагинацией
+    res.json({
+      data: result.rows,
+      pages: totalPages,
+      current_page: page,
+      total_records: totalRecords
+    });
   } catch (error) {
     console.error('Database error:', error);
     res.status(500).json({ error: 'Database error' });
