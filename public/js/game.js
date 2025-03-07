@@ -7,32 +7,32 @@ class Quiz {
       this.questionsHistory = [];
       this.lives = 10;
       
-      // Настройки кэша
+      // Cache settings
       this.cacheKey = 'quiz_questions_cache';
-      this.cacheExpiryTime = 24 * 60 * 60 * 1000; // 24 часа в миллисекундах
+      this.cacheExpiryTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
       
       this.loadQuestions();
     }
   
     loadQuestions() {
-      // Проверяем кэш перед загрузкой с сервера
+      // Check cache before loading from server
       const cachedData = this.getQuestionsFromCache();
       
       if (cachedData) {
         this.questions = this.shuffleQuestions(cachedData);
         this.loaded = true;
         
-        // Предзагрузка изображений для первых нескольких вопросов
+        // Preload images for the first few questions
         this.preloadImagesForNextQuestions(5);
         
         if (typeof this.onQuestionsLoaded === 'function') {
           this.onQuestionsLoaded();
         }
         
-        // Обновляем кэш в фоновом режиме
+        // Update cache in background mode
         this.refreshQuestionsCache();
       } else {
-        // Если кэша нет, загружаем с сервера
+        // If there's no cache, load from server
         this.loadQuestionsFromServer();
       }
     }
@@ -45,10 +45,10 @@ class Quiz {
           this.questions = this.shuffleQuestions(data);
           this.loaded = true;
           
-          // Сохраняем вопросы в кэш
+          // Save questions to cache
           this.saveQuestionsToCache(data);
           
-          // Предзагрузка изображений для первых нескольких вопросов
+          // Preload images for the first few questions
           this.preloadImagesForNextQuestions(5);
           
           if (typeof this.onQuestionsLoaded === 'function') {
@@ -56,7 +56,7 @@ class Quiz {
           }
         },
         error: (xhr, status, error) => {
-          console.error('Ошибка загрузки вопросов:', error);
+          console.error('Error loading questions:', error);
           this.questions = this.shuffleQuestions(this.getDefaultQuestions());
           this.loaded = true;
           
@@ -67,30 +67,30 @@ class Quiz {
       });
     }
     
-    // Метод для перемешивания вопросов
+    // Method for shuffling questions
     shuffleQuestions(questions) {
       const shuffled = [...questions];
-      // Алгоритм Фишера-Йейтса для перемешивания массива
+      // Fisher-Yates algorithm for array shuffling
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
       
-      // Ограничиваем количество вопросов до 10 для одной игры
+      // Limit the number of questions to 10 for one game
       return shuffled.slice(0, 10);
     }
   
     refreshQuestionsCache() {
-      // Фоновое обновление кэша без блокировки интерфейса
+      // Background cache update without blocking the interface
       $.ajax({
         url: '/api/questions',
         dataType: 'json',
         success: (data) => {
-          // Обновляем кэш новыми данными
+          // Update cache with new data
           this.saveQuestionsToCache(data);
         },
         error: (xhr, status, error) => {
-          console.error('Ошибка обновления кэша вопросов:', error);
+          console.error('Error updating questions cache:', error);
         }
       });
     }
@@ -103,7 +103,7 @@ class Quiz {
         };
         localStorage.setItem(this.cacheKey, JSON.stringify(cacheData));
       } catch (e) {
-        console.error('Ошибка при сохранении кэша вопросов:', e);
+        console.error('Error saving questions cache:', e);
       }
     }
   
@@ -118,20 +118,20 @@ class Quiz {
         const cache = JSON.parse(cachedData);
         const now = Date.now();
         
-        // Проверяем актуальность кэша
+        // Check if cache is up-to-date
         if (now - cache.timestamp > this.cacheExpiryTime) {
           return null;
         }
         
         return cache.questions;
       } catch (e) {
-        console.error('Ошибка при получении кэша вопросов:', e);
+        console.error('Error getting questions cache:', e);
         return null;
       }
     }
   
     preloadImagesForNextQuestions(count) {
-      // Предзагружаем изображения для следующих нескольких вопросов
+      // Preload images for the next few questions
       const startIndex = this.currentQuestion;
       const endIndex = Math.min(startIndex + count, this.questions.length);
       
@@ -140,12 +140,12 @@ class Quiz {
         
         if (!question || !question.answers) continue;
         
-        // Проверяем, являются ли ответы объектами с URL
+        // Check if answers are objects with URL
         const hasImageAnswers = typeof question.answers[0] === 'object' && 
                                question.answers[0].url !== undefined;
         
         if (hasImageAnswers) {
-          // Предзагружаем изображения для вопросов с картинками
+          // Preload images for questions with pictures
           question.answers.forEach(answer => {
             if (answer.url) {
               const img = new Image();
@@ -157,7 +157,7 @@ class Quiz {
     }
   
     getDefaultQuestions() {
-      // Резервные вопросы на случай ошибки загрузки
+      // Backup questions in case of loading error
       return [
         {
           question: "Name the planet known as the 'Red Planet':",
@@ -179,7 +179,7 @@ class Quiz {
     getCurrentQuestion() {
       const question = this.questions[this.currentQuestion];
       
-      // Если ответы - просто массив строк, конвертируем их в старый формат
+      // If answers are just an array of strings, convert them to the old format
       if (question && !question.type && Array.isArray(question.answers) && typeof question.answers[0] === 'string') {
         question.type = 'text';
       }
@@ -509,7 +509,7 @@ class Quiz {
       this.lastPerformanceCheck = Date.now();
       this.performanceCheckInterval = 5000;
   
-      // Добавим инициализацию controls при создании игры
+      // Initialize controls when creating the game
       this.controls = {
         isUp: false,
         isDown: false,
@@ -521,45 +521,45 @@ class Quiz {
       // Load background and planets during intro screen
       this.createSpaceBackground();
       
-      // Если вопросы уже загружены, показываем вступительный экран
+      // If questions are already loaded, show intro screen
       if (this.quiz.isLoaded()) {
         this.showIntroScreen();
       } else {
-        // Иначе, ждем загрузки
+        // Otherwise wait for loading
         this.quiz.onQuestionsLoaded = () => {
           this.showIntroScreen();
         };
       }
   
-      // Добавляем обработчик клавиш для более отзывчивого управления
+      // Add keyboard handler for more responsive controls
       this.setupKeyboardControls();
   
-      // Запускаем игровой цикл сразу
+      // Start game loop immediately
       this.update = this.update.bind(this);
       window.requestAnimationFrame(this.update);
   
       this.playerAddress = null;
       this.web3Connected = false;
       
-      // Инициализировать интерфейс Web3
+      // Initialize Web3 interface
       this.initWeb3();
   
-      // Инициализация аудио элементов
+      // Initialize audio elements
       this.backgroundMusic = document.getElementById("backgroundMusic");
       this.shootSound = document.getElementById("shootSound");
       this.correctSound = document.getElementById("correctSound"); 
       this.wrongSound = document.getElementById("wrongSound");
       this.timeupSound = document.getElementById("timeupSound");
   
-      this.gameStartTime = 0; // Время начала игры
-      this.gameEndTime = 0;   // Время завершения игры
-      this.gameTime = 0;      // Общее время игры в секундах
+      this.gameStartTime = 0; // Game start time
+      this.gameEndTime = 0;   // Game end time
+      this.gameTime = 0;      // Total game time in seconds
   
-      // Добавляем проверку авторизации при создании игры
+      // Add authorization check when creating game
       $.ajax({
         url: '/api/auth/status',
         method: 'GET',
-        async: false, // Синхронный запрос для блокировки инициализации
+        async: false, // Synchronous request to block initialization
         success: (data) => {
           if (!data.authenticated) {
             throw new Error("Authentication required to play");
@@ -572,7 +572,7 @@ class Quiz {
     }
   
     async initWeb3() {
-      // Проверяем доступность провайдера Web3 (например, MetaMask)
+      // Check Web3 provider availability (e.g. MetaMask)
       if (typeof window.ethereum !== 'undefined') {
         $("#connect-wallet").on("click", async () => {
           try {
@@ -580,7 +580,7 @@ class Quiz {
             this.playerAddress = accounts[0];
             this.web3Connected = true;
             
-            // Обновляем UI
+            // Update UI
             $("#wallet-status").text(`Connected: ${this.playerAddress.substring(0, 6)}...${this.playerAddress.substring(38)}`);
             $("#connect-wallet").text("Connected");
           } catch (error) {
@@ -597,11 +597,11 @@ class Quiz {
       const introContainer = $("#intro-container");
       const introImage = $("#intro-image");
   
-      // Добавим стиль для кнопки, которая должна быть всегда видимой
+      // Add style for always visible button
       $('<style>')
         .prop('type', 'text/css')
         .html(`
-          /* Кнопка логина всегда должна быть видимой для неавторизованных пользователей */
+          /* Login button must always be visible for unauthorized users */
           #discord-login.must-show {
             display: block !important;
             visibility: visible !important;
@@ -616,23 +616,23 @@ class Quiz {
         `)
         .appendTo('head');
   
-      // Add a click event to check auth and start the game
+      // Add click handler to check auth and start game
       introImage.on("click", () => {
-        // Проверяем, авторизован ли пользователь
+        // Check if user is authenticated
         $.ajax({
           url: '/api/auth/status',
           method: 'GET',
           success: (data) => {
             if (data.authenticated) {
-              // Пользователь авторизован - начинаем игру
+              // User authenticated - start game
         introContainer.fadeOut(500, () => {
           this.startGame();
               });
             } else {
-              // Пользователь не авторизован - показываем сообщение
+              // User not authenticated - show message
               this.showMessage('Login with Discord to play the game', 'warning');
               
-              // Всегда обновляем фиксированную кнопку логина
+              // Always update fixed login button
               createFixedLoginButton();
             }
           },
@@ -644,30 +644,30 @@ class Quiz {
     }
   
     startGame() {
-      // Проверяем авторизацию перед запуском игры
+      // Check authentication before starting the game
       if (!isAuthenticated) {
         console.error("Attempted to start game without authentication");
         
-        // Показываем сообщение об авторизации
+        // Show authentication message
         if (typeof showAuthRequiredMessage === 'function') {
           showAuthRequiredMessage();
         }
         
-        // Возвращаемся, не запуская игру
+        // Return without starting the game
         return;
       }
       
       this.gameStartTime = Date.now();
       this.gameActive = true;
       
-      // Создаем специальный интервал для отслеживания времени игры
+      // Create special interval for tracking game time
       this.gameTimerInterval = setInterval(() => {
         if (this.gameActive) {
-          // Обновляем текущее время игры только если игра активна
+          // Update current game time only if game is active
           const currentTime = Date.now();
           this.gameTime = (currentTime - this.gameStartTime) / 1000;
         }
-      }, 100); // Обновляем каждые 100мс для более точного отсчета времени
+      }, 100); // Update every 100ms for more accurate time tracking
       
       this.player = new Player({
         parentContainer: this.container,
@@ -681,17 +681,17 @@ class Quiz {
       this.displayQuestionCount();
       this.displayLives();
       
-      // Добавим явный вызов таймера уже при старте игры
+      // Add explicit call to timer already at start of game
       this.displayTimer();
       this.startTimer();
       
       this.displayQuestion();
       this.update();
       
-      // Добавляем класс, указывающий на активную игру
+      // Add class indicating active game
       $('#game-container').addClass('game-active');
       
-      // Скрываем информацию о пользователе
+      // Hide user information
       this.hideUserInfo();
     }
   
@@ -741,7 +741,7 @@ class Quiz {
       const questionEl = $("<div class='question'>" + question.question + "</div>");
       this.container.append(questionEl);
   
-      // Возвращаем разные изображения астероидов для текстовых вопросов
+      // Return different asteroid images for text questions
       const answerImages = [
         "https://mattcannon.games/codepen/quiz/astroid-a.png",
         "https://mattcannon.games/codepen/quiz/astroid-b.png",
@@ -749,16 +749,16 @@ class Quiz {
         "https://mattcannon.games/codepen/quiz/astroid-d.png"
       ];
   
-      // Создаем и размещаем ответы
+      // Create and place answers
       let answers = [];
       
-      // Проверяем тип вопроса - если ответы являются объектами с url, значит это вопрос с картинками
+      // Check question type - if answers are objects with url, it's a question with pictures
       const isImageQuestion = question.answers && 
                               question.answers.length > 0 && 
                               typeof question.answers[0] === 'object' && 
                               question.answers[0].url !== undefined;
   
-      // Предзагружаем изображения для следующего вопроса
+      // Preload images for next question
       if (this.quiz.currentQuestion + 1 < this.quiz.questions.length) {
         this.quiz.preloadImagesForNextQuestions(1);
       }
@@ -766,7 +766,7 @@ class Quiz {
       question.answers.forEach((answer, index) => {
         let answerContent;
         if (isImageQuestion) {
-          // Для вопросов с картинками - добавляем ленивую загрузку
+          // For questions with pictures - add lazy loading
           answerContent = `
             <div class="image-placeholder" data-src="${answer.url}">
               <div class="loading-spinner"></div>
@@ -774,19 +774,19 @@ class Quiz {
             <span class="answer-text">${answer.text}</span>
           `;
         } else {
-          // Для текстовых вопросов
+          // For text questions
           answerContent = `<span class="answer-title">${answer}</span>`;
         }
         
         const answerEl = $(`<div class='answer ${isImageQuestion ? 'image-answer' : ''}' data-index='${index}'>${answerContent}</div>`);
         
-        // Установка позиции ответа
+        // Set answer position
         const angle = (Math.PI * 2 * index) / question.answers.length;
         const distance = Math.min(window.innerWidth, window.innerHeight) * 0.35;
         const x = window.innerWidth / 2 + Math.cos(angle) * distance;
         const y = window.innerHeight / 2 + Math.sin(angle) * distance;
         
-        // Выбираем изображение астероида для фона
+        // Select asteroid image for background
         const asteroidImage = isImageQuestion 
           ? "https://mattcannon.games/codepen/quiz/asteroid.png" 
           : answerImages[index % answerImages.length];
@@ -804,31 +804,31 @@ class Quiz {
         this.floatAnswer(answerEl);
         answers.push(answerEl);
         
-        // Если это вопрос с изображениями, запускаем ленивую загрузку
+        // If this is an image question, start lazy loading
         if (isImageQuestion) {
           const placeholder = answerEl.find('.image-placeholder');
           const imageUrl = placeholder.data('src');
           
-          // Создаем новый объект изображения
+          // Create new image object
           const img = new Image();
           
-          // Настраиваем обработчики событий для изображения
+          // Set event listeners for image
           img.onload = function() {
-            // После загрузки изображения заменяем плейсхолдер
+            // After image loading, replace placeholder
             placeholder.replaceWith(`<img src="${imageUrl}" alt="${answer.text}" class="answer-image">`);
           };
           
           img.onerror = function() {
-            // В случае ошибки, показываем запасное изображение
+            // In case of error, show fallback image
             placeholder.replaceWith(`<div class="error-image">Ошибка загрузки</div>`);
           };
           
-          // Начинаем загрузку изображения
+          // Start loading image
           img.src = imageUrl;
         }
       });
   
-      // Добавим CSS стили для placeholder и spinner
+      // Add CSS styles for placeholder and spinner
       if (!$('#lazy-loading-styles').length) {
         $('<style id="lazy-loading-styles">')
           .prop('type', 'text/css')
@@ -868,18 +868,17 @@ class Quiz {
       
       this.setupListeners(answers);
       
-      // Уберем эти строки отсюда, так как теперь мы вызываем resetTimer() 
-      // перед вызовом displayQuestion()
-      // this.displayTimer();  // Создаем элемент таймера
-      // this.startTimer();    // Запускаем таймер с обратным отсчетом
+      // Remove these lines here, as we're now calling resetTimer() before displayQuestion()
+      // this.displayTimer();  // Create timer element
+      // this.startTimer();    // Start timer with countdown
     }
   
     floatAnswer(answerEl) {
-      // Останавливаем существующие анимации перед созданием новых
+      // Stop existing animations before creating new ones
       answerEl.stop(true);
       
       const floatAnimation = () => {
-        // Увеличиваем область движения астероидов для более разнообразного геймплея
+        // Increase range of asteroid movement for more varied gameplay
         const newX = Math.random() * (window.innerWidth - 100);
         const newY = Math.random() * (window.innerHeight - 100);
           
@@ -902,9 +901,9 @@ class Quiz {
       const $answer = $(`.answer[data-index="${answerIndex}"]`);
       const correctAnswerIndex = question.correct;
   
-      console.log("Selected:", answerIndex, "Correct:", correctAnswerIndex);
+      
   
-      // Останавливаем таймер
+      // Stop the timer
       if (this.timerInterval) {
         clearInterval(this.timerInterval);
         this.timerInterval = null;
@@ -936,7 +935,7 @@ class Quiz {
         this.displayFeedback(`Wrong! -5 points, -1🩷`, false, bulletPosition);
         $answer.css("animation", "incorrect 0.5s");
         
-        // Выделяем правильный ответ
+        // Highlight correct answer
         $(`.answer[data-index="${correctAnswerIndex}"]`).css({
           "background-color": "rgba(46, 204, 113, 0.7)",
           "border": "2px solid #2ecc71"
@@ -948,7 +947,7 @@ class Quiz {
           this.wrongSound.play().catch(e => ("Error playing wrong sound:", e));
         }
         
-        // Проверяем, не закончились ли жизни
+        // Check if lives are over
         if (remainingLives <= 0) {
           setTimeout(() => {
             this.endGame();
@@ -957,12 +956,12 @@ class Quiz {
         }
       }
       
-      // Обновляем отображение счета
+      // Update score display
       this.displayScore();
       
-      // ВАЖНОЕ ИЗМЕНЕНИЕ: Используем общий метод для перехода к следующему вопросу
+      // IMPORTANT CHANGE: Use common method to move to next question
       setTimeout(() => {
-        // Не увеличиваем счетчик вопросов здесь, это делается в moveToNextQuestion
+        // Don't increase question count here, this is handled in moveToNextQuestion
         this.moveToNextQuestion();
       }, 1000);
     }
@@ -982,7 +981,7 @@ class Quiz {
       $(".question, .answer").remove(); // Clear out both the question and answers
     }
   
-    // Полностью переработанный метод обработки времени
+    // Completely rewritten method for handling time
     startTimer() {
       if (this.timerInterval) {
         clearInterval(this.timerInterval);
@@ -991,15 +990,15 @@ class Quiz {
       
       this.timeLeft = 20;
       
-      // Проверяем и создаем таймер если нужно
+      // Check if timer is needed
       if ($(".timer").length === 0) {
         this.forceCreateTimer();
       }
       
-      // Обновляем отображение
+      // Update display
       $(".timer").text(this.timeLeft).removeClass('timer-warning');
       
-      // Создаем интервал
+      // Create interval
       this.timerInterval = setInterval(() => {
         this.timeLeft--;
         
@@ -1009,7 +1008,7 @@ class Quiz {
         
         $(".timer").text(this.timeLeft);
         
-        // Предупреждение при малом времени
+        // Warning when time is low
         if (this.timeLeft <= 5 && this.timeLeft > 0) {
           $(".timer").addClass('timer-warning');
           
@@ -1027,15 +1026,15 @@ class Quiz {
       }, 1000);
     }
   
-    // Новый метод для принудительного создания таймера
+    // New method for forced timer creation
     forceCreateTimer() {
-      // Гарантировано удаляем старый таймер
+      // Guaranteed to remove old timer
       $(".timer").remove();
       
-      // Создаем новый элемент таймера с гарантированной видимостью и стилями
+      // Create new timer element with guaranteed visibility and styles
       const timerEl = $("<div class='timer'>20</div>");
       
-      // Добавляем явные стили для гарантии видимости 
+      // Add explicit styles for guaranteed visibility 
       timerEl.css({
         'position': 'absolute',
         'font-size': '48px', 
@@ -1049,25 +1048,25 @@ class Quiz {
         'opacity': '1'
       });
       
-      // Добавляем элемент в контейнер
+      // Add element to container
       this.container.append(timerEl);
       
-      console.log("Таймер принудительно создан:", $(".timer").length, "элементов видны");
+      
       return timerEl;
     }
   
-    // Новый метод для обработки истекшего времени
+    // New method for handling expired time
     handleExpiredTimer() {
-      // Проверяем, что ответ еще не дан
+      // Check if answer has been given yet
       if (!this.canAnswer) {
-        console.log("Ответ уже дан, пропускаем обработку таймера");
+        
         return;
       }
       
-      // Блокируем ответы
+      // Block answers
       this.canAnswer = false;
       
-      // Показываем правильный ответ
+      // Show correct answer
       const question = this.quiz.getCurrentQuestion();
       if (question) {
         $(`.answer[data-index="${question.correct}"]`).css({
@@ -1076,32 +1075,32 @@ class Quiz {
         });
       }
       
-      // Уменьшаем жизни
+      // Decrease lives
       this.quiz.decreaseLives();
       
-      // ДОБАВЛЯЕМ СНЯТИЕ 5 ОЧКОВ
+      // ADD 5 POINTS REMOVAL
       this.quiz.score -= 5;
       
-      // Обновляем отображение жизней и счета
+      // Update lives and score display
       this.displayLives();
-      this.displayScore(); // ДОБАВЛЯЕМ ОБНОВЛЕНИЕ СЧЕТА
+      this.displayScore(); // ADD SCORE UPDATE
       
-      // Показываем сообщение с уточнением о потере очков
+      // Show message about losing points
       this.displayFeedback("Time's up! -5 points, -1🩷", false, {
         x: window.innerWidth / 2,
         y: window.innerHeight / 2
       });
       
-      // Планируем переход к следующему вопросу
-      console.log("Планируем переход к следующему вопросу через 1.5 секунды");
+      // Plan to move to next question
+      
       setTimeout(() => {
         this.moveToNextQuestion();
       }, 1500);
     }
   
-    // Обновленный метод перехода к следующему вопросу с улучшенным отображением таймера
+    // Updated method for moving to next question with improved timer display
     moveToNextQuestion() {
-      // Очищаем предыдущие вопросы и таймеры
+      // Clear previous questions and timers
       this.clearQuestion();
       this.clearAnswers();
       if (this.timerInterval) {
@@ -1109,84 +1108,84 @@ class Quiz {
         this.timerInterval = null;
       }
       
-      // Увеличиваем счетчик вопросов
+      // Increase question count
       this.quiz.currentQuestion++;
       
-      // Проверяем окончание игры
+      // Check if game is over
       if (this.quiz.isGameOver() || this.quiz.lives <= 0) {
         this.endGame();
         return;
       }
       
-      // Обновляем отображение
+      // Update display
       this.displayQuestionCount();
       
-      // Удаляем старый таймер и создаем новый
+      // Remove old timer and create new one
       $(".timer").remove();
       
-      // Отображаем вопрос
+      // Display question
       this.displayQuestion();
       
-      // Создаем таймер
+      // Create timer
       this.forceCreateTimer();
       
-      // Разрешаем ответы
+      // Allow answers
       this.canAnswer = true;
       
-      // Запускаем таймер
+      // Start timer
       this.timeLeft = 20;
       this.startTimer();
     }
   
-    // Добавляем метод для очистки ответов
+    // Add method for clearing answers
     clearAnswers() {
       $(".answer").remove();
-      console.log("Ответы очищены");
+      
     }
   
     handleTimeUp() {
-      console.log("Метод handleTimeUp вызван");
       
-      // Очищаем таймер полностью
+      
+      // Clear timer completely
       this.clearTimer();
       
-      // Убедимся, что это действительно уменьшает жизни
-      console.log("Жизни до уменьшения:", this.quiz.lives);
+      // Make sure this really decreases lives
+      
       const remainingLives = this.quiz.decreaseLives();
-      console.log("Жизни после уменьшения:", remainingLives);
       
-      // Убедимся, что очки корректно уменьшаются
-      console.log("Очки до уменьшения:", this.quiz.score);
-      this.quiz.score -= 5; // Снимаем 5 очков за просроченное время
-      console.log("Очки после уменьшения:", this.quiz.score);
       
-      // Обновляем отображение жизней и счёта
+      // Make sure points are correctly decreased
+      
+      this.quiz.score -= 5; // Remove 5 points for late submission
+      
+      
+      // Update lives and score display
       this.displayLives();
       this.displayScore();
       
-      // Показываем сообщение
+      // Show message
       this.displayFeedback("Time's up! -5 points, -1 ❤️", false, {
         x: window.innerWidth / 2,
         y: window.innerHeight / 2
       });
       
-      // Продолжаем как обычно...
+      // Continue as usual...
     }
   
     resetTimer() {
-      // Останавливаем интервал
+      // Stop interval
       if (this.timerInterval) {
         clearInterval(this.timerInterval);
         this.timerInterval = null;
       }
       
-      // Сбрасываем значение времени
+      // Reset time value
       this.timeLeft = 20;
       
-      // Обновляем отображение
+      // Update display
       $(".timer").text(this.timeLeft).removeClass('timer-warning');
       
-      // Останавливаем звук, если он играет
+      // Stop sound if playing
       if (this.timeupSound) {
         this.timeupSound.pause();
         this.timeupSound.currentTime = 0;
@@ -1196,7 +1195,7 @@ class Quiz {
     displayScore() {
       $(".score").remove();
       
-      // Используем тот же flexbox-подход для счета
+      // Use same flexbox approach for counting
       const scoreEl = $(`
         <div class="score">
           <span class="text-part">Score: ${this.quiz.score}</span>
@@ -1220,23 +1219,23 @@ class Quiz {
   
     async endGame() {
       try {
-        // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сначала сохраняем время окончания и вычисляем общее время игры
-        // чтобы оно больше не изменялось
+        // IMPORTANT FIX: First save end time and calculate total game time
+        // so it doesn't change anymore
         this.gameEndTime = Date.now();
-        this.gameTime = (this.gameEndTime - this.gameStartTime) / 1000; // Время в секундах
-        const finalGameTime = this.gameTime; // Сохраняем финальное время в константу, чтобы оно не изменялось
+        this.gameTime = (this.gameEndTime - this.gameStartTime) / 1000; // Time in seconds
+        const finalGameTime = this.gameTime; // Save final time in constant, so it doesn't change
         
-        // Останавливаем все таймеры и интервалы
+        // Stop all timers and intervals
         this.clearTimer();
         clearInterval(this.timerInterval);
-        clearInterval(this.gameTimerInterval); // Очищаем интервал игрового таймера, если он есть
+        clearInterval(this.gameTimerInterval); // Clear game timer interval if it exists
         
-        // Останавливаем все вычисления и анимации
+        // Stop all calculations and animations
         this.canAnswer = false;
         this.gameActive = false;
         this.timer = 0;
         
-        // Отправляем запрос на серверное сохранение, только если у нас есть счет
+        // Send request to server for saving score, only if we have score
         if (this.quiz.score > 0) {
           try {
             const response = await $.ajax({
@@ -1244,60 +1243,60 @@ class Quiz {
               method: 'POST',
               data: JSON.stringify({
                 score: this.quiz.score,
-                time: finalGameTime, // Используем сохраненное финальное время
+                time: finalGameTime, // Use saved final time
                 gameEndTime: Math.floor(Date.now()/1000)
               }),
               contentType: 'application/json'
             });
             
-            console.log('Score saved:', response);
+            
             if (response.newRecord) {
-              console.log('New personal best!');
+              
         }
       } catch (error) {
             console.error('Error saving score:', error);
           }
         }
         
-        // Показываем экран завершения игры
+        // Show game over screen
         const gameOverEl = $("<div class='game-over'></div>");
         this.container.append(gameOverEl);
         
         gameOverEl.append("<h2>Game Over!</h2>");
         
-        // Добавляем причину окончания игры
+        // Add reason for game end
         if (this.quiz.lives <= 0) {
           gameOverEl.append(`<p>You ran out of lives!</p>`);
         } else {
           gameOverEl.append(`<p>You completed all questions with ${this.quiz.lives} lives remaining!</p>`);
         }
         
-        // Добавляем отображение времени игры, используя сохраненное финальное время
+        // Add time of game, using saved final time
         const formattedTime = this.formatGameTime(finalGameTime);
         gameOverEl.append(`<p>Time: <span class='final-time'>${formattedTime}</span></p>`);
         
-        // Использование finalScore вместо score для большей надежности
+        // Use finalScore instead of score for greater reliability
         const finalScore = typeof this.finalScore !== 'undefined' ? this.finalScore : 
                          (typeof this.score !== 'undefined' ? this.score : 0);
         
         gameOverEl.append(`<p>Your final score: <span class='final-score'>${finalScore}<span class="star-icon">⭐</span></span></p>`);
         
-        // Добавим div для кнопок с flex-контейнером
+        // Add div for buttons with flex container
         const buttonsContainer = $("<div class='game-over-buttons'></div>");
         
-        // Кнопка для перезапуска игры
+        // Button for restarting game
         const restartBtn = $("<button class='restart-btn'>Play Again</button>");
         buttonsContainer.append(restartBtn);
         
-        // Кнопка для перехода на страницу лидерборда
+        // Button for going to leaderboard
         const leaderboardBtn = $("<button class='leaderboard-btn'>Leaderboard</button>");
         buttonsContainer.append(leaderboardBtn);
         
-        // Добавляем контейнер с кнопками
+        // Add container with buttons
         gameOverEl.append(buttonsContainer);
         
         restartBtn.on("click", () => {
-          // Просто перезагружаем страницу для полного рестарта
+          // Simply reload page for full restart
           window.location.reload();
         });
         
@@ -1305,20 +1304,20 @@ class Quiz {
           window.location.href = '/leaderboard';
         });
         
-        // Добавляем кнопки в контейнер
+        // Add buttons to container
         const btnContainer = $('<div>').addClass('btn-container');
         btnContainer.append(restartBtn).append(leaderboardBtn);
         
-        // Добавляем контейнер с кнопками в game-over
+        // Add container with buttons to game-over
         gameOverEl.append(btnContainer);
         
-        // Добавляем весь контейнер в игровое поле
+        // Add entire container to game field
         this.container.append(gameOverEl);
         
-        // Показываем информацию о пользователе снова
+        // Show user information again
         this.showUserInfo();
         
-        // Убеждаемся, что элементы управления остаются скрытыми
+        // Make sure control elements remain hidden
         $('#controls-title, #controls-guide').hide();
       } catch (error) {
         console.error("Error in endGame:", error);
@@ -1326,10 +1325,10 @@ class Quiz {
     }
   
     setupKeyboardControls() {
-      // Сначала удаляем существующие обработчики, чтобы избежать дублирования
+      // First remove existing handlers to avoid duplication
       $(document).off('keydown.quizGame keyup.quizGame');
       
-      // Обработчик нажатия клавиш с пространством имен для легкого удаления
+      // Handler for key presses with namespace for easy removal
       $(document).on('keydown.quizGame', (event) => {
         switch(event.key) {
           case 'ArrowUp':
@@ -1359,14 +1358,13 @@ class Quiz {
       });
   
       $(document).ready(function() {
-        // Проверка загрузки ethers.js
+        // Check ethers.js loading
         setTimeout(() => {
-            console.log("ethers.js loaded:", typeof ethers !== 'undefined');
-            console.log("Web3 available:", typeof window.ethereum !== 'undefined');
+
         }, 1000);
       });
       
-      // Обработчик отпускания клавиш с пространством имен
+      // Handler for key releases with namespace
       $(document).on('keyup.quizGame', (event) => {
         switch(event.key) {
           case 'ArrowUp':
@@ -1415,12 +1413,12 @@ class Quiz {
       }
     }
   
-    // Добавляем метод для создания и отображения таймера
+    // Add method for creating and displaying timer
     displayTimer() {
-      // Сначала удаляем существующий таймер, если есть
+      // First remove existing timer, if any
       $(".timer").remove();
       
-      // Создаем и добавляем новый элемент таймера с явной видимостью
+      // Create and add new timer element with explicit visibility
       const timerEl = $("<div class='timer'>20</div>").css({
         'display': 'block',
         'z-index': '1000',
@@ -1428,32 +1426,32 @@ class Quiz {
       });
       this.container.append(timerEl);
       
-      // Для отладки
-      console.log("Таймер создан:", $(".timer").length, "элементов");
+      // For debugging
+      
     }
     
-    // Метод для полной очистки таймера
+    // Method for full timer clearing
     clearTimer() {
-      // Останавливаем интервал
+      // Stop interval
       if (this.timerInterval) {
         clearInterval(this.timerInterval);
         this.timerInterval = null;
       }
       
-      // Обнуляем текст таймера, но НЕ скрываем его
-      $(".timer").text("20");  // Просто меняем текст на начальное значение
-      console.log("Таймер очищен, но остался видимым");
+      // Reset timer text, but don't hide it
+      $(".timer").text("20");  // Simply change text to initial value
+      
     }
   
-    // Добавить метод для получения таблицы лидеров
+    // Add method for fetching leaderboard
     async fetchLeaderboard() {
       if (!this.web3Connected) return;
       
       try {
-        // Код для вызова смарт-контракта и получения лучших результатов
+        // Code for calling smart contract and getting top results
         // ...
         
-        // Отображение результатов
+        // Display results
         this.displayLeaderboard(leaderboardData);
       } catch (error) {
         console.error("Failed to fetch leaderboard:", error);
@@ -1482,7 +1480,7 @@ class Quiz {
       $(".game-over").append(leaderboardEl);
     }
   
-    // Вспомогательные функции для работы с доказательствами SP1
+    // Helper functions for working with SP1 proofs
     fromHexString(hexString) {
       if (hexString.startsWith('0x')) {
         hexString = hexString.slice(2);
@@ -1664,7 +1662,7 @@ class Quiz {
 
     // Полностью обновленный метод перехода к следующему вопросу
     moveToNextQuestion() {
-      console.log("Переходим к следующему вопросу");
+      
       
       // 1. Остановим все интервалы
       if (this.timerInterval) {
@@ -1681,19 +1679,18 @@ class Quiz {
       
       // 4. Проверяем, закончилась ли игра
       if (this.quiz.isGameOver() || this.quiz.lives <= 0) {
-        console.log("Игра завершается");
         this.endGame();
         return;
       }
       
       // 5. Обновляем счетчик вопросов
       this.displayQuestionCount();
-      console.log("Отображаем новый вопрос");
+    
       
       // 6. СНАЧАЛА создаем таймер, ЗАТЕМ отображаем вопрос
       // Принудительно удаляем старый таймер
       $(".timer").remove();
-      console.log("Старый таймер удален");
+      
       
       // ВАЖНОЕ ИЗМЕНЕНИЕ: Используем jQuery для принудительного создания и добавления таймера
       const newTimer = $("<div>", {
@@ -1715,7 +1712,7 @@ class Quiz {
       
       // Явно добавляем в контейнер
       this.container.append(newTimer);
-      console.log("Новый таймер создан:", $(".timer").length, "элементов");
+      
       
       // 7. Отображаем новый вопрос
       this.displayQuestion();
@@ -1725,7 +1722,7 @@ class Quiz {
       this.timeLeft = 20;
       
       // 9. Запускаем новый таймер с явной проверкой
-      console.log("Запускаем таймер для нового вопроса");
+      
       this.startSimpleTimer();
     };
 
@@ -1785,7 +1782,7 @@ class Quiz {
           if (this.timeLeft === 5 && this.timeupSound && this.timeupSound.paused) {
             this.timeupSound.currentTime = 0;
             // Вот здесь ДОБАВИЛ вызов метода play()
-            this.timeupSound.play().catch(e => console.log("Ошибка воспроизведения звука:", e));
+            this.timeupSound.play().catch
           }
         }
         
@@ -1818,7 +1815,7 @@ class Quiz {
             y: e.pageY
           };
           
-          console.log(`Выбран ответ с индексом ${index}`);
+          
           this.checkAnswer(index, position);
         }
       });
@@ -1983,7 +1980,7 @@ class Quiz {
       // Удаляем классы, связанные с игрой
       $('#game-container').removeClass('game-active');
       
-      console.log("Game has been reset");
+      
     }
   }
   
@@ -2171,7 +2168,7 @@ class Quiz {
           </div>
         `);
         
-        console.log("Элемент #user-info создан:", $("#user-info").length);
+        
       }
       
       // Запускаем проверку авторизации
