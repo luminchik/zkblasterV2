@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Quiz Blaster - Space Quiz Game</title>
     <link rel="icon" href="/assets/favicon.ico" type="image/x-icon">
     <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
@@ -726,7 +726,6 @@
                 
                 // Предотвращаем создание новой кнопки
                 window.createFixedLoginButton = function() {
-                    console.log("Создание кнопки Discord Login отключено");
                     return false;
                 };
 

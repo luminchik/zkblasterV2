@@ -552,3 +552,80 @@
     left: 20px !important;
     font-size: 36px !important;
   }
+
+  /* Добавим базовые адаптивные стили */
+  .game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    max-width: 1920px; /* Максимальный размер для больших экранов */
+    margin: 0 auto;
+  }
+
+  /* Перепишем позиционирование элементов */
+  #game-ui {
+    position: fixed;
+    top: 2vh;
+    left: 2vw;
+    right: 2vw;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  .score, .lives {
+    font-size: clamp(16px, 2.5vw, 32px);
+    padding: 0.8vh 1.5vw;
+    margin: 0 1vw;
+  }
+
+  /* Адаптивный таймер */
+  .timer {
+    font-size: clamp(24px, 4vw, 48px);
+    bottom: 5vh;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* Адаптивные ответы */
+  .answer {
+    width: clamp(200px, 40vw, 400px);
+    height: clamp(60px, 10vh, 80px);
+    margin: 1vh 1vw;
+    font-size: clamp(14px, 2vw, 20px);
+  }
+
+  /* Медиа-запросы для мобильных устройств */
+  @media (max-width: 768px) and (orientation: portrait) {
+    .game-container {
+      transform: rotate(90deg);
+      width: 100vh;
+      height: 100vw;
+    }
+    
+    .answer {
+      width: 80vw;
+      height: 15vh;
+      margin: 2vh auto;
+    }
+    
+    #controls-guide {
+      bottom: 2vh;
+      font-size: 3vw;
+    }
+  }
+
+  /* Для маленьких экранов */
+  @media (max-height: 600px) {
+    .timer {
+      bottom: 2vh;
+      font-size: 3vh;
+    }
+    
+    .answer {
+      height: 8vh;
+    }
+  }
