@@ -10,6 +10,10 @@ const { Client } = require('pg');
 const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const fs = require('fs');
+const crypto = require('crypto');
+const questions = require('./src/questions.json');
+const jwt = require('jsonwebtoken');
+
 const app = express();
 
 // Настройка CORS
@@ -394,48 +398,57 @@ app.post('/api/verify-score', async (req, res) => {
   }
 });
 
-// Переместить маршрут ПЕРЕД обработчики ошибок
-app.get('/api/questions', (req, res) => {
-  try {
-    // Загружаем из src/data/questions.json или из корня проекта
-    const questionsPath = path.join(__dirname, 'src/data/questions.json');
+// Генерация ключа шифрования (хранить в .env)
+const ENCRYPTION_KEY = crypto.randomBytes(32);
+const IV_LENGTH = 16;
+
+// Шифрование вопросов
+function encryptQuestions(data) {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', 
+    Buffer.from(ENCRYPTION_KEY), iv);
+  const encrypted = Buffer.concat([
+    cipher.update(JSON.stringify(data)), 
+    cipher.final()
+  ]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+// Middleware проверки JWT
+function authenticateJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  
+  if (authHeader) {
+    const token = authHeader.split(' ')[1];
     
-    fs.readFile(questionsPath, 'utf8', (err, data) => {
-      if (err) {
-        console.error('Ошибка чтения файла questions.json:', err);
-        
-        // Используем резервный файл из корня проекта
-        const fallbackPath = path.join(__dirname, 'questions.json');
-        fs.readFile(fallbackPath, 'utf8', (fallbackErr, fallbackData) => {
-          if (fallbackErr) {
-            console.error('Ошибка чтения резервного файла:', fallbackErr);
-            return res.status(500).json({ error: 'Failed to load questions' });
-          }
-          
-          try {
-            const questions = JSON.parse(fallbackData);
-            const shuffled = [...questions].sort(() => Math.random() - 0.5);
-            res.json(shuffled);
-          } catch (e) {
-            console.error('Ошибка парсинга JSON (резервный):', e);
-            res.status(500).json({ error: 'Failed to parse questions JSON' });
-          }
-        });
-        return;
-      }
-      
-      try {
-        const questions = JSON.parse(data);
-        const shuffled = [...questions].sort(() => Math.random() - 0.5);
-        res.json(shuffled);
-      } catch (jsonError) {
-        console.error('Ошибка парсинга JSON:', jsonError);
-        res.status(500).json({ error: 'Failed to parse questions JSON' });
-      }
+    jwt.verify(token, ENCRYPTION_KEY, (err) => {
+      if (err) return res.sendStatus(403);
+      next();
     });
+  } else {
+    res.sendStatus(401);
+  }
+}
+
+// Эндпоинт для аутентификации
+app.post('/api/auth', (req, res) => {
+  // Проверка учетных данных...
+  const user = { id: 1, name: "Player" };
+  const token = jwt.sign(user, ENCRYPTION_KEY, { expiresIn: '1h' });
+  
+  res.json({ 
+    token,
+    decryptionKey: ENCRYPTION_KEY.toString('base64')
+  });
+});
+
+// Эндпоинт для получения вопросов
+app.get('/api/questions', authenticateJWT, (req, res) => {
+  try {
+    const encryptedData = encryptQuestions(questions);
+    res.json({ data: encryptedData });
   } catch (error) {
-    console.error('Error handling questions:', error);
-    res.status(500).json({ error: 'Failed to load questions' });
+    res.status(500).send('Error processing questions');
   }
 });
 

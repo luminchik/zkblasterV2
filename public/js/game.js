@@ -14,60 +14,42 @@ class Quiz {
       this.loadQuestions();
     }
   
-    loadQuestions() {
-      // Check cache before loading from server
-      const cachedData = this.getQuestionsFromCache();
-      
-      if (cachedData) {
-        this.questions = this.shuffleQuestions(cachedData);
-        this.loaded = true;
+    async loadQuestions() {
+      try {
+        const response = await fetch('/api/questions', {
+          headers: {
+            'Authorization': `Bearer ${getAuthToken()}` // Получаем JWT токен
+          }
+        });
         
-        // Preload images for the first few questions
-        this.preloadImagesForNextQuestions(5);
+        const { data } = await response.json();
+        const decrypted = await this.decryptData(data);
+        this.questions = this.shuffleQuestions(decrypted);
         
-        if (typeof this.onQuestionsLoaded === 'function') {
-          this.onQuestionsLoaded();
-        }
-        
-        // Update cache in background mode
-        this.refreshQuestionsCache();
-      } else {
-        // If there's no cache, load from server
-        this.loadQuestionsFromServer();
+      } catch (error) {
+        console.error('Error loading questions:', error);
+        this.questions = this.getDefaultQuestions();
       }
     }
   
-    loadQuestionsFromServer() {
-      $.ajax({
-        url: '/api/questions',
-        dataType: 'json',
-        success: (data) => {
-          this.questions = this.shuffleQuestions(data);
-          this.loaded = true;
-          
-          // Save questions to cache
-          this.saveQuestionsToCache(data);
-          
-          // Preload images for the first few questions
-          this.preloadImagesForNextQuestions(5);
-          
-          if (typeof this.onQuestionsLoaded === 'function') {
-            this.onQuestionsLoaded();
-          }
-        },
-        error: (xhr, status, error) => {
-          console.error('Error loading questions:', error);
-          this.questions = this.shuffleQuestions(this.getDefaultQuestions());
-          this.loaded = true;
-          
-          if (typeof this.onQuestionsLoaded === 'function') {
-            this.onQuestionsLoaded();
-          }
-        }
-      });
+    async decryptData(encryptedData) {
+      const [ivHex, encryptedText] = encryptedData.split(':');
+      const iv = Buffer.from(ivHex, 'hex');
+      
+      // Ключ дешифровки должен приходить с сервера при аутентификации
+      const decryptionKey = await this.fetchDecryptionKey(); 
+      
+      const decipher = crypto.createDecipheriv('aes-256-cbc',
+        Buffer.from(decryptionKey), iv);
+      
+      const decrypted = Buffer.concat([
+        decipher.update(Buffer.from(encryptedText, 'hex')), 
+        decipher.final()
+      ]);
+      
+      return JSON.parse(decrypted.toString());
     }
-    
-    // Method for shuffling questions
+  
     shuffleQuestions(questions) {
       const shuffled = [...questions];
       // Fisher-Yates algorithm for array shuffling
